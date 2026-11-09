@@ -1,4 +1,4 @@
-Встроенные «Звуки для всех» (Сходка 1.21.2) — с freesound.org, под свободными лицензиями.
+Встроенные «Звуки для всех» — с freesound.org, под свободными лицензиями.
 Файлы — превью freesound (MP3 128 кбит/с), без изменений; громкость выравнивает программа.
 
 CC0 (общественное достояние) — указывать автора не обязательно, но указываем:
@@ -16,6 +16,20 @@ CC0 (общественное достояние) — указывать авт�
   fart.mp3      «Fart #005» — bassimat                                            https://freesound.org/s/840755/
   slap.mp3      «punch 1 - loud slap» — steveuk87                                 https://freesound.org/s/490768/
   boom.mp3      «Drama Boom 02» — modusmogulus                                    https://freesound.org/s/802074/
+  bonk.mp3      «Bonk» — Harrisando                                               https://freesound.org/s/466202/
+  oof.mp3       «Oof (original)» — unfa                                           https://freesound.org/s/719053/
+  huh.mp3       «questioning vocal tone huh» — martian                            https://freesound.org/s/19262/
+  goose.mp3     «Goose Trumpet (loud honk)» — el_boss                             https://freesound.org/s/740197/
+  nope.mp3      «Nope (my own)» — boro07                                          https://freesound.org/s/784984/
+  yeet.mp3      «aaah_yeete» — nevermoire                                         https://freesound.org/s/434111/
+  uhoh.mp3      «Uh Oh» — Ant103010                                               https://freesound.org/s/504654/
+  goofy.mp3     «Goofy Man Laughter» — NdurusSounds                               https://freesound.org/s/671083/
+  animewow.mp3  «Cute Anime Girl "Wow" Sound Effect» — DarkNightPrincess          https://freesound.org/s/658569/
+  nani.mp3      «Nani(What)(Midtone)» — KeenanAXQuinn                             https://freesound.org/s/585070/
+  wilhelm.mp3   «Wilhelm Scream Alternative 2» — qubodup                          https://freesound.org/s/813304/
+  censor.mp3    «Reality TV Censor Beep» — LilMati                                https://freesound.org/s/460015/
+  pipe.mp3      «Metal Pipe Falling on Concrete in Basement» — RutgerMuller       https://freesound.org/s/104355/
+  slowmo.mp3    «Slow motion sound» — karolist                                    https://freesound.org/s/370632/
 
 CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/):
   laugh2.mp3    «Laugh Track 5» — LittleRainySeasons                              https://freesound.org/s/395413/
@@ -26,6 +40,11 @@ CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/):
   aww.mp3       «awww 01» — tim.kahn                                              https://freesound.org/s/336998/
   dundun.mp3    «Dun dun dun» — Simon_Lacelle                                     https://freesound.org/s/45654/
   slide.mp3     «Slide Whistle, Descending, B (H1)» — InspectorJ                  https://freesound.org/s/410804/
+  evil.mp3      «17 Evil laugh» — The Baron                                       https://freesound.org/s/98382/
+  highlaugh.mp3 «High Pitched Laugh Sound Effect» — qubodup                       https://freesound.org/s/737524/
 
 CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/):
   drumroll.mp3  «DrumRoll» — HolyGhostParty                                       https://freesound.org/s/71133/
+  quack.mp3     «TwoFranticQuacks» — tewell                                       https://freesound.org/s/90028/
+  baby.mp3      «human_baby_toddler_male_15_months_laugh» — soundscalpel.com      https://freesound.org/s/110392/
+  fartecho.mp3  «flatuverb» — NoiseCollector                                      https://freesound.org/s/15837/

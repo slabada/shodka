@@ -1260,7 +1260,7 @@ body.th-p3 .msg .msg-acts { top: -18px; }
 .music-panel .mp-ico { width: 18px; height: 18px; flex: none; }
 /* Звуки для всех (1.21) — та же панель, что у музыки, внутри сетка плиток */
 .sfx-panel { width: 380px; }
-.sfx-panel .sfx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; overflow-y: auto; max-height: 330px; padding: 2px; }
+.sfx-panel .sfx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; overflow-y: auto; max-height: min(46vh, 420px); padding: 2px; }
 .sfx-panel .sfx-tile { background: var(--ink0); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-width: 0; transition: border-color .15s, background .15s; }
 .sfx-panel .sfx-tile.playing { border-color: var(--acc1); background: var(--lamp-soft); }
 .sfx-panel .sfx-play { border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; font-weight: 500; text-align: left; padding: 9px 10px 4px; cursor: pointer; border-radius: 12px 12px 0 0; min-width: 0; }
