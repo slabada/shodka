@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https:; media-src 'self' blob: mediastream:; connect-src 'self' ws: wss: http: https:; worker-src 'self' blob:; font-src 'self'">
+<title>Сходка</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-users" viewBox="0 0 24 24"><path fill="currentColor" d="M8 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8m9 0a3 3 0 1 0 0-6a3 3 0 0 0 0 6M4.25 14A2.25 2.25 0 0 0 2 16.25v.25S2 21 8 21s6-4.5 6-4.5v-.25A2.25 2.25 0 0 0 11.75 14zM17 19.5c-1.171 0-2.068-.181-2.755-.458a5.5 5.5 0 0 0 .736-2.207A4 4 0 0 0 15 16.55v-.3a3.24 3.24 0 0 0-.902-2.248L14.2 14h5.6a2.2 2.2 0 0 1 2.2 2.2s0 3.3-5 3.3"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24"><path fill="currentColor" d="M10.985 3.165a1 1 0 0 0-1.973-.33l-.86 5.163L3.998 8A1 1 0 1 0 4 10l3.817-.002l-.667 4L3 14a1 1 0 1 0 0 2l3.817-.002l-.807 4.838a1 1 0 1 0 1.973.329l.862-5.167l4.975-.003l-.806 4.84a1 1 0 1 0 1.972.33l.862-5.17L20 15.992a1 1 0 0 0 0-2l-3.819.001l.667-4.001l4.153-.003a1 1 0 0 0-.002-2l-3.817.002l.804-4.827a1 1 0 1 0-1.972-.33l-.86 5.159l-4.975.003zm-1.14 6.832l4.976-.003l-.667 4.001l-4.976.002z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path fill="currentColor" d="M15 4.25v15.496c0 1.079-1.274 1.651-2.08.934l-4.492-3.994a.75.75 0 0 0-.498-.189H4.25A2.25 2.25 0 0 1 2 14.247V9.749A2.25 2.25 0 0 1 4.25 7.5h3.68a.75.75 0 0 0 .498-.19l4.491-3.993C13.726 2.6 15 3.172 15 4.25m3.992 1.648a.75.75 0 0 1 1.049.156A9.96 9.96 0 0 1 22 12.001a9.96 9.96 0 0 1-1.96 5.946a.75.75 0 0 1-1.205-.893a8.46 8.46 0 0 0 1.665-5.053a8.46 8.46 0 0 0-1.665-5.054a.75.75 0 0 1 .157-1.05M17.143 8.37a.75.75 0 0 1 1.017.302c.536.99.84 2.125.84 3.329a7 7 0 0 1-.84 3.328a.75.75 0 0 1-1.32-.714a5.5 5.5 0 0 0 .66-2.614c0-.948-.24-1.838-.66-2.615a.75.75 0 0 1 .303-1.016"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><path fill="currentColor" d="M18.25 11a.75.75 0 0 1 .743.648l.007.102v.5a6.75 6.75 0 0 1-6.249 6.732l-.001 2.268a.75.75 0 0 1-1.493.102l-.007-.102v-2.268a6.75 6.75 0 0 1-6.246-6.496L5 12.25v-.5a.75.75 0 0 1 1.493-.102l.007.102v.5a5.25 5.25 0 0 0 5.034 5.246l.216.004h.5a5.25 5.25 0 0 0 5.246-5.034l.004-.216v-.5a.75.75 0 0 1 .75-.75M12 2a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4"/></symbol>
+    <symbol id="i-mic-off" viewBox="0 0 24 24"><path fill="currentColor" d="M3.28 2.22a.75.75 0 1 0-1.06 1.06L8 9.06V12a4 4 0 0 0 6.248 3.309l1.146 1.146A5.23 5.23 0 0 1 12.25 17.5h-.5l-.216-.004A5.25 5.25 0 0 1 6.5 12.25v-.5l-.007-.102A.75.75 0 0 0 5 11.75v.5l.004.236a6.75 6.75 0 0 0 6.246 6.496v2.268l.007.102a.75.75 0 0 0 1.493-.102l.001-2.268a6.7 6.7 0 0 0 3.712-1.458l4.256 4.256a.75.75 0 0 0 1.061-1.06zm13.916 11.794l1.146 1.146A6.7 6.7 0 0 0 19 12.25v-.5l-.007-.102a.75.75 0 0 0-1.493.102v.5l-.004.216a5.2 5.2 0 0 1-.3 1.548M8.138 4.956l7.792 7.792Q16 12.384 16 12V6a4 4 0 0 0-7.862-1.044"/></symbol>
+    <symbol id="i-head" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c5.523 0 10 4.477 10 10v7a3 3 0 0 1-3 3h-3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h4.5v-2a8.5 8.5 0 0 0-17 0v2H8a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H5a3 3 0 0 1-3-3v-7C2 6.477 6.477 2 12 2"/></symbol>
+    <symbol id="i-head-off" viewBox="0 0 24 24"><path fill="currentColor" d="M15 4.25c0-1.078-1.274-1.65-2.08-.934L8.427 7.31a.75.75 0 0 1-.498.19H4.25A2.25 2.25 0 0 0 2 9.75v4.497a2.25 2.25 0 0 0 2.25 2.25h3.68a.75.75 0 0 1 .498.19l4.491 3.993c.806.717 2.081.145 2.081-.934zm1.22 4.97a.75.75 0 0 1 1.06 0L19 10.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L20.06 12l1.72 1.72a.75.75 0 1 1-1.06 1.06L19 13.062l-1.72 1.72a.75.75 0 1 1-1.06-1.06L17.94 12l-1.72-1.72a.75.75 0 0 1 0-1.06"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path fill="currentColor" d="M12.012 2.25c.734.008 1.465.093 2.182.253a.75.75 0 0 1 .582.649l.17 1.527a1.384 1.384 0 0 0 1.927 1.116l1.4-.615a.75.75 0 0 1 .85.174a9.8 9.8 0 0 1 2.205 3.792a.75.75 0 0 1-.272.825l-1.241.916a1.38 1.38 0 0 0 0 2.226l1.243.915a.75.75 0 0 1 .272.826a9.8 9.8 0 0 1-2.204 3.792a.75.75 0 0 1-.849.175l-1.406-.617a1.38 1.38 0 0 0-1.926 1.114l-.17 1.526a.75.75 0 0 1-.571.647a9.5 9.5 0 0 1-4.406 0a.75.75 0 0 1-.572-.647l-.169-1.524a1.382 1.382 0 0 0-1.925-1.11l-1.406.616a.75.75 0 0 1-.85-.175a9.8 9.8 0 0 1-2.203-3.796a.75.75 0 0 1 .272-.826l1.243-.916a1.38 1.38 0 0 0 0-2.226l-1.243-.914a.75.75 0 0 1-.272-.826a9.8 9.8 0 0 1 2.205-3.792a.75.75 0 0 1 .85-.174l1.4.615a1.387 1.387 0 0 0 1.93-1.118l.17-1.526a.75.75 0 0 1 .583-.65q1.074-.238 2.201-.252M12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6"/></symbol>
+    <symbol id="i-screen" viewBox="0 0 24 24"><path fill="currentColor" d="M4.25 4A2.25 2.25 0 0 0 2 6.25v11.5A2.25 2.25 0 0 0 4.25 20h15.5A2.25 2.25 0 0 0 22 17.75V6.25A2.25 2.25 0 0 0 19.75 4zm8.28 3.465l3.255 3.255a.75.75 0 1 1-1.06 1.06L12.75 9.806v6.447a.75.75 0 1 1-1.5 0V9.808L9.28 11.78a.75.75 0 1 1-1.06-1.06l3.25-3.254a.75.75 0 0 1 1.06 0"/></symbol>
+    <symbol id="i-screen-stop" viewBox="0 0 24 24"><path fill="currentColor" d="M4.25 4h15.5A2.25 2.25 0 0 1 22 6.25v11.5A2.25 2.25 0 0 1 19.75 20H4.25A2.25 2.25 0 0 1 2 17.75V6.25A2.25 2.25 0 0 1 4.25 4m5.03 4.215a.75.75 0 0 0-1.06 1.06l2.72 2.72l-2.72 2.725a.75.75 0 0 0 1.06 1.06L12 13.057l2.724 2.723a.75.75 0 1 0 1.06-1.06l-2.723-2.724l2.723-2.715a.75.75 0 1 0-1.06-1.062l-2.723 2.717z"/></symbol>
+    <symbol id="i-leave" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4.354v6.65h7.442L17.72 9.28a.75.75 0 0 1-.073-.977l.073-.084a.75.75 0 0 1 .976-.072l.084.072l2.997 2.998a.75.75 0 0 1 .073.976l-.073.084l-2.996 3.003a.75.75 0 0 1-1.134-.975l.072-.084l1.713-1.717h-7.431L12 19.25a.75.75 0 0 1-.88.738l-8.5-1.501a.75.75 0 0 1-.62-.739V5.75a.75.75 0 0 1 .628-.74l8.5-1.396a.75.75 0 0 1 .872.74m-3.498 7.145a1.002 1.002 0 1 0 0 2.005a1.002 1.002 0 0 0 0-2.005M13 18.502h.765l.102-.007a.75.75 0 0 0 .648-.744l-.007-4.25H13zM13.002 10L13 8.725V5h.745a.75.75 0 0 1 .743.647l.007.101l.007 4.252z"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path fill="currentColor" d="m12.815 12.197l-7.532 1.255a.5.5 0 0 0-.386.318L2.3 20.728c-.248.64.421 1.25 1.035.942l18-9a.75.75 0 0 0 0-1.341l-18-9c-.614-.307-1.283.303-1.035.942l2.598 6.958a.5.5 0 0 0 .386.318l7.532 1.255a.2.2 0 0 1 0 .395"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M11.883 3.007L12 3a1 1 0 0 1 .993.883L13 4v7h7a1 1 0 0 1 .993.883L21 12a1 1 0 0 1-.883.993L20 13h-7v7a1 1 0 0 1-.883.993L12 21a1 1 0 0 1-.993-.883L11 20v-7H4a1 1 0 0 1-.993-.883L3 12a1 1 0 0 1 .883-.993L4 11h7V4a1 1 0 0 1 .883-.993L12 3z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10a9.96 9.96 0 0 1-4.644-1.142l-4.29 1.117a.85.85 0 0 1-1.037-1.036l1.116-4.289A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2m1.252 11H8.75l-.102.007a.75.75 0 0 0 0 1.486l.102.007h4.502l.101-.007a.75.75 0 0 0 0-1.486zm1.998-3.5h-6.5l-.102.007a.75.75 0 0 0 0 1.486L8.75 11h6.5l.102-.007a.75.75 0 0 0 0-1.486z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 13.75A4.25 4.25 0 0 0 12.75 18h1.74a3.25 3.25 0 0 1-3.24 3h-5A3.25 3.25 0 0 1 3 17.75v-7.5A3.25 3.25 0 0 1 6.25 7H8.5zM17.75 3A3.25 3.25 0 0 1 21 6.25v7.5A3.25 3.25 0 0 1 17.75 17h-5a3.25 3.25 0 0 1-3.25-3.25v-7.5A3.25 3.25 0 0 1 12.75 3z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path fill="currentColor" d="m4.21 4.387l.083-.094a1 1 0 0 1 1.32-.083l.094.083L12 10.585l6.293-6.292a1 1 0 1 1 1.414 1.414L13.415 12l6.292 6.293a1 1 0 0 1 .083 1.32l-.083.094a1 1 0 0 1-1.32.083l-.094-.083L12 13.415l-6.293 6.292a1 1 0 0 1-1.414-1.414L10.585 12L4.293 5.707a1 1 0 0 1-.083-1.32l.083-.094z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="currentColor" d="m8.5 16.586l-3.793-3.793a1 1 0 0 0-1.414 1.414l4.5 4.5a1 1 0 0 0 1.414 0l11-11a1 1 0 0 0-1.414-1.414z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path fill="currentColor" d="M3.5 16.5a1.5 1.5 0 1 1 0 3a1.5 1.5 0 0 1 0-3m4 .5h13.503a1 1 0 0 1 .117 1.993l-.117.007H7.5a1 1 0 0 1-.116-1.993zh13.503zm-4-6.5a1.5 1.5 0 1 1 0 3a1.5 1.5 0 0 1 0-3m4 .5h13.503a1 1 0 0 1 .117 1.993l-.117.007H7.5a1 1 0 0 1-.116-1.993zh13.503zm-4-6.492a1.5 1.5 0 1 1 0 2.999a1.5 1.5 0 0 1 0-3M7.5 5h13.503a1 1 0 0 1 .117 1.993L21.003 7H7.5a1 1 0 0 1-.116-1.993zh13.503z"/></symbol>
+    <symbol id="i-max" viewBox="0 0 24 24"><path fill="currentColor" d="M5 6a1 1 0 0 1 1-1h2a1 1 0 0 0 0-2H6a3 3 0 0 0-3 3v2a1 1 0 0 0 2 0zm0 12a1 1 0 0 0 1 1h2a1 1 0 1 1 0 2H6a3 3 0 0 1-3-3v-2a1 1 0 1 1 2 0zM18 5a1 1 0 0 1 1 1v2a1 1 0 1 0 2 0V6a3 3 0 0 0-3-3h-2a1 1 0 1 0 0 2zm1 13a1 1 0 0 1-1 1h-2a1 1 0 1 0 0 2h2a3 3 0 0 0 3-3v-2a1 1 0 1 0-2 0z"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5.5l11-2V16"/><circle cx="6.25" cy="18" r="2.75" fill="currentColor"/><circle cx="17.25" cy="16" r="2.75" fill="currentColor"/></g></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path fill="currentColor" d="M6 5.25C6 4.56 6.56 4 7.25 4h2.5c.69 0 1.25.56 1.25 1.25v13.5c0 .69-.56 1.25-1.25 1.25h-2.5C6.56 20 6 19.440 6 18.75zm7 0c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.250v13.5c0 .69-.56 1.25-1.25 1.25h-2.5c-.69 0-1.25-.56-1.25-1.25z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path fill="currentColor" d="M4.5 5.6v12.8c0 .95 1.05 1.52 1.84 1l9.6-6.4a1.2 1.2 0 0 0 0-2l-9.6-6.4c-.8-.52-1.84.05-1.84 1zM18.25 4.5c.69 0 1.25.56 1.25 1.25v12.5a1.25 1.25 0 1 1-2.5 0V5.75c0-.69.56-1.25 1.25-1.25z"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path fill="currentColor" d="M19.5 5.6v12.8c0 .95-1.05 1.52-1.84 1l-9.6-6.4a1.2 1.2 0 0 1 0-2l9.6-6.4c.8-.52 1.84.05 1.84 1zM5.75 4.5c.69 0 1.25.56 1.25 1.25v12.5a1.25 1.25 0 1 1-2.5 0V5.75c0-.69.56-1.25 1.25-1.25z"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h4v4M4 20 20 4M20 16v4h-4M14.5 14.5 20 20M4 4l5 5"/></g></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2.5 3.5 3.5L17 9.5"/><path d="M3.5 11.5v-1A4.5 4.5 0 0 1 8 6h12.5"/><path d="M7 21.5 3.5 18 7 14.5"/><path d="M20.5 12.5v1A4.5 4.5 0 0 1 16 18H3.5"/></g></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M5 5.274c0-1.707 1.826-2.792 3.325-1.977l12.362 6.727c1.566.852 1.566 3.1 0 3.952L8.325 20.702C6.826 21.518 5 20.432 5 18.726z"/></symbol>
+    <symbol id="i-user-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M11 17.5a6.47 6.47 0 0 1 1.023-3.5h-7.77a2.25 2.25 0 0 0-2.25 2.25v.919c0 .572.18 1.13.511 1.596C4.056 20.929 6.58 22 10 22q1.399 0 2.592-.24A6.48 6.48 0 0 1 11 17.502m4-10.495a5 5 0 1 0-10 0a5 5 0 0 0 10 0M23 17.5a5.5 5.5 0 1 0-11 0a5.5 5.5 0 0 0 11 0m-5.59-3.492L17.5 14l.09.008a.5.5 0 0 1 .402.402l.008.09V17h2.504l.09.008a.5.5 0 0 1 .402.402l.008.09l-.008.09a.5.5 0 0 1-.402.402l-.09.008H18v2.5l-.008.09a.5.5 0 0 1-.402.402L17.5 21l-.09-.008a.5.5 0 0 1-.402-.402L17 20.5V18h-2.496l-.09-.008a.5.5 0 0 1-.402-.402l-.008-.09l.008-.09a.5.5 0 0 1 .402-.402l.09-.008H17v-2.5l.008-.09a.5.5 0 0 1 .402-.402"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><path fill="currentColor" d="M9 2a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5a3 3 0 0 0-3-3zm-.5 4.75A.75.75 0 0 1 9.25 6h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75m0 11a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75m0-3a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75"/></symbol>
+    <symbol id="i-server-off" viewBox="0 0 24 24"><mask id="m-server-off" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/><path d="M3 3l18 18" stroke="#000" stroke-width="4.2" stroke-linecap="round"/></mask><path mask="url(#m-server-off)" fill="currentColor" d="M9 2a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5a3 3 0 0 0-3-3zm-.5 4.75A.75.75 0 0 1 9.25 6h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75m0 11a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75m0-3a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75"/><path d="M3.5 3.5l17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path fill="currentColor" d="M19.49 5.57a6 6 0 0 1-1.893 8.962c-.649.351-1.43.135-1.952-.386l-5.79-5.791c-.522-.522-.738-1.303-.388-1.952A6 6 0 0 1 18.43 4.51l2.29-2.29a.75.75 0 1 1 1.061 1.06zM3.28 21.78l2.29-2.29a6 6 0 0 0 8.962-1.893c.351-.649.135-1.43-.387-1.952l-5.79-5.79c-.522-.522-1.303-.738-1.952-.388A6 6 0 0 0 4.51 18.43l-2.29 2.29a.75.75 0 1 0 1.06 1.061"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path fill="currentColor" d="M3 2.5a1 1 0 0 0-1 1V9c0 1.741.614 3.256 1.71 4.337c.873.86 2.01 1.406 3.29 1.592v.821a6.25 6.25 0 1 0 12.5 0v-.657a3.252 3.252 0 0 0-1-6.343a3.25 3.25 0 0 0-1 6.343v.657a4.25 4.25 0 1 1-8.5 0v-.821c1.28-.186 2.417-.732 3.29-1.592C13.385 12.257 14 10.741 14 9V3.5a1 1 0 0 0-1-1h-1.998a1 1 0 1 0 0 2H12V9c0 1.259-.436 2.244-1.115 2.913C10.205 12.584 9.215 13 8 13c-1.216 0-2.204-.416-2.885-1.087C4.435 11.243 4 10.259 4 9V4.5h1a1 1 0 0 0 0-2zm15.5 8.25a1.25 1.25 0 1 1 0 2.5a1.25 1.25 0 0 1 0-2.5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><path fill="currentColor" d="M12.002 1.999c5.523 0 10.001 4.478 10.001 10.002c0 5.523-4.478 10.001-10.001 10.001C6.478 22.002 2 17.524 2 12.001C2 6.477 6.478 1.999 12.002 1.999M12 10.5a.75.75 0 0 0-.75.75v5a.75.75 0 0 0 1.5 0v-5a.75.75 0 0 0-.75-.75M12 9a1 1 0 1 0 0-2a1 1 0 0 0 0 2"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 1 0 20a10 10 0 0 1 0-20m0 1.5a8.5 8.5 0 0 0 0 17a8.5 8.5 0 0 0 0-17m0 12.1a1.05 1.05 0 1 1 0 2.1a1.05 1.05 0 0 1 0-2.1"/><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M9.6 9.6a2.4 2.4 0 1 1 3.6 2.08c-.75.43-1.2.98-1.2 1.82"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path fill="currentColor" d="M10.295 19.715a1 1 0 0 0 1.404-1.424l-5.37-5.292h13.67a1 1 0 0 0 0-2H6.336L11.7 5.714a1 1 0 0 0-1.404-1.424L3.37 11.112a1.25 1.25 0 0 0 0 1.78z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path fill="currentColor" d="M8.904 16.5h6.192C14.476 19.773 13.235 22 12 22c-1.197 0-2.4-2.094-3.038-5.204zh6.192zm-5.838.001h4.306c.364 2.082.983 3.854 1.792 5.093a10.03 10.03 0 0 1-5.952-4.814zm13.563 0h4.305a10.03 10.03 0 0 1-6.097 5.093c.755-1.158 1.344-2.778 1.715-4.681zh4.305zm.302-6.5h4.87a10.05 10.05 0 0 1-.257 5H16.84a29 29 0 0 0 .13-4.344zh4.87zM2.2 10h4.87a28 28 0 0 0 .033 4.42l.057.58H2.456a10.05 10.05 0 0 1-.258-5m6.377 0h6.849a26 26 0 0 1-.037 4.425l-.062.575H8.674a26 26 0 0 1-.132-4.512zh6.849zm6.368-7.424l-.108-.17A10.03 10.03 0 0 1 21.373 8.5h-4.59c-.316-2.416-.957-4.492-1.838-5.923l-.108-.17zm-5.902-.133l.122-.037c-.88 1.351-1.535 3.33-1.883 5.654l-.062.44H2.63a10.03 10.03 0 0 1 6.413-6.057l.122-.037zM12 2.002c1.319 0 2.646 2.542 3.214 6.183l.047.315H8.739C9.28 4.691 10.644 2.002 12 2.002"/></symbol>
+    <symbol id="i-hangup" viewBox="0 0 24 24"><path fill="currentColor" d="m21.949 12.992l-.198 1.037c-.185.971-1.092 1.623-2.12 1.524l-2.047-.198c-.892-.086-1.652-.72-1.878-1.566l-.632-2.355q-1.401-.575-3.09-.525a8.1 8.1 0 0 0-3.14.707l-.391 2.205c-.148.836-.838 1.459-1.711 1.547l-2.035.204c-1.015.102-1.988-.544-2.277-1.51l-.309-1.037c-.308-1.032-.033-2.118.721-2.851Q5.513 7.579 11.75 7.57q6.245-.007 9.185 2.588c.824.728 1.21 1.806 1.015 2.834"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m-1 6.75v6.5a.75.75 0 0 1-1.5 0v-6.5a.75.75 0 0 1 1.5 0m6 0v6.5a.75.75 0 0 1-1.5 0v-6.5a.75.75 0 0 1 1.5 0m-3 1.5v3.5a.75.75 0 0 1-1.5 0v-3.5a.75.75 0 0 1 1.5 0m-6 .5v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0"/></symbol>
+    <symbol id="i-chev-up" viewBox="0 0 24 24"><path fill="currentColor" d="M4.293 15.707a1 1 0 0 0 1.414 0L12 9.414l6.293 6.293a1 1 0 0 0 1.414-1.414l-7-7a1 1 0 0 0-1.414 0l-7 7a1 1 0 0 0 0 1.414"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path fill="currentColor" d="m15.207 2.29l4 3.996a1 1 0 0 1 .084 1.32l-.083.094l-4 4.006a1 1 0 0 1-1.498-1.32l.083-.094L16.083 8H5.5a1 1 0 0 1-.993-.883L4.5 6.999a1 1 0 0 1 .883-.993l.117-.007h10.59l-2.296-2.293a1 1 0 0 1-.084-1.32l.083-.095a1 1 0 0 1 1.32-.084zl4 3.995zm4.284 14.592l.006.117a1 1 0 0 1-.883.993l-.117.007H7.914l2.294 2.293a1 1 0 0 1 .083 1.32l-.083.094a1 1 0 0 1-1.32.084l-.094-.084l-4-3.996a1 1 0 0 1-.084-1.32l.083-.094l4-4.004a1 1 0 0 1 1.498 1.32l-.083.094l-2.29 2.293h10.58a1 1 0 0 1 .993.883l.006.117z"/></symbol>
+    <symbol id="i-attach" viewBox="0 0 24 24"><path fill="currentColor" d="M11.772 3.744a6 6 0 0 1 8.66 8.302l-.19.197l-8.8 8.798l-.036.03a3.723 3.723 0 0 1-5.489-4.973a.8.8 0 0 1 .085-.113l.054-.06l.086-.088l7.127-7.14a.75.75 0 0 1 1.13.981l-.069.08L7.2 16.902a2.223 2.223 0 0 0 3.068 3.207l.088-.085l8.833-8.83a4.5 4.5 0 0 0-6.208-6.506l-.155.147l-.018.018l-9.479 9.48a.75.75 0 0 1-1.133-.977l.072-.084l9.504-9.528z"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><path fill="currentColor" d="M21 17.75A3.25 3.25 0 0 1 17.75 21H6.25A3.25 3.25 0 0 1 3 17.75V6.25A3.25 3.25 0 0 1 6.25 3h11.5A3.25 3.25 0 0 1 21 6.25zM5.464 19.38c.24.08.505.12.786.12h11.5c.28 0 .545-.04.786-.12l-5.94-5.814a.75.75 0 0 0-1.03-.03l-.081.03zM15.5 6.5a2 2 0 1 0 0 4a2 2 0 0 0 0-4"/></symbol>
+    <symbol id="i-cut" viewBox="0 0 24 24"><path fill="currentColor" d="M12.142 2.854a.75.75 0 0 0-1.284-.775l-.006.01l-.014.025l-.05.093a12 12 0 0 0-.632 1.454c-.33.928-.659 2.217-.659 3.62c0 1.338.328 2.611.676 3.627c-1.205 1.866-2.296 3.48-2.962 4.42a4 4 0 1 0 1.235.849c.627-.87 1.577-2.259 2.616-3.86q.145.295.27.535l.28.535l.08.147l.022.04l.007.012v.001a.75.75 0 0 0 1.306-.738l-.005-.01l-.019-.033l-.072-.135a32 32 0 0 1-.33-.64c-.137-.27-.297-.6-.462-.966c.758-1.205 1.511-2.454 2.122-3.564c.68-1.237 1.186-2.358 1.186-3.11c0-1.414-.33-2.713-.658-3.645a12 12 0 0 0-.632-1.466l-.016-.03l-.005-.01zM5 20.5a2.5 2.5 0 1 1 0-5a2.5 2.5 0 0 1 0 5m14-7.001a4 4 0 0 0-2.307.732a46 46 0 0 0-1.244-1.777l-.89 1.373c.41.596.856 1.258 1.28 1.909A4 4 0 1 0 19 13.5m0 7a2.5 2.5 0 1 1 0-5a2.5 2.5 0 0 1 0 5"/></symbol>
+    <symbol id="i-paste" viewBox="0 0 24 24"><path fill="currentColor" d="M12.75 2h-1.5A2.25 2.25 0 0 0 9 4.25v.5h-.75A2.25 2.25 0 0 0 6 7v12.75A2.25 2.25 0 0 0 8.25 22h7.5A2.25 2.25 0 0 0 18 19.75V7a2.25 2.25 0 0 0-2.25-2.25H15v-.5A2.25 2.25 0 0 0 12.75 2m-2.25 2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1-.75-.75z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path fill="currentColor" d="M18.25 20.5a.75.75 0 1 1 0 1.5l-13 .004a.75.75 0 1 1 0-1.5zm-6.602-18.5l.102-.004a.75.75 0 0 1 .743.648l.007.102l-.001 13.69l3.722-3.72a.75.75 0 0 1 .976-.073l.085.072a.75.75 0 0 1 .072.976l-.073.084l-4.997 4.997a.75.75 0 0 1-.976.073l-.085-.073l-5.003-4.996a.75.75 0 0 1 .976-1.134l.084.072l3.723 3.719l.001-13.685a.75.75 0 0 1 .644-.743z"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path fill="currentColor" d="M15.891 3.048a3.578 3.578 0 1 1 5.061 5.06l-.892.893L15 3.94zM13.94 5.001L3.941 15a2.7 2.7 0 0 0-.676 1.15l-1.236 4.32a.75.75 0 0 0 .928.927l4.32-1.236a2.7 2.7 0 0 0 1.148-.676l10-10z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path fill="currentColor" d="M10 5h4a2 2 0 1 0-4 0M8.5 5a3.5 3.5 0 1 1 7 0h5.75a.75.75 0 0 1 0 1.5h-1.32l-1.17 12.111A3.75 3.75 0 0 1 15.026 22H8.974a3.75 3.75 0 0 1-3.733-3.389L4.07 6.5H2.75a.75.75 0 0 1 0-1.5zm2 4.75a.75.75 0 0 0-1.5 0v7.5a.75.75 0 0 0 1.5 0zM14.25 9a.75.75 0 0 0-.75.75v7.5a.75.75 0 0 0 1.5 0v-7.5a.75.75 0 0 0-.75-.75"/></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><path fill="currentColor" d="M17.754 14a2.25 2.25 0 0 1 2.249 2.249v.918a2.75 2.75 0 0 1-.513 1.599C17.945 20.929 15.42 22 12 22s-5.944-1.072-7.486-3.236a2.75 2.75 0 0 1-.51-1.596v-.92A2.25 2.25 0 0 1 6.251 14zM12 2.005a5 5 0 1 1 0 10a5 5 0 0 1 0-10"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8V2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10h-6a2 2 0 0 1-2-2m1.5 0V2.5l6 6H14a.5.5 0 0 1-.5-.5"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path fill="currentColor" d="M13.821 6.5h5.929a2.25 2.25 0 0 1 2.229 1.938l.016.158l.005.154v9a2.25 2.25 0 0 1-2.096 2.245L19.75 20H4.25a2.25 2.25 0 0 1-2.245-2.096L2 17.75v-7.499l7.25.001l.192-.009a2.25 2.25 0 0 0 1.12-.403l.15-.12zM8.207 4c.46 0 .908.141 1.284.402l.156.12l2.103 1.751l-2.243 1.87l-.082.062a.75.75 0 0 1-.348.125L8.979 8.336H2V6.25a2.25 2.25 0 0 1 2.096-2.245L4.25 4z"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path fill="currentColor" d="M6.25 4.5A1.75 1.75 0 0 0 4.5 6.25v11.5c0 .966.783 1.75 1.75 1.75h11.5a1.75 1.75 0 0 0 1.75-1.75v-4a.75.75 0 0 1 1.5 0v4A3.25 3.25 0 0 1 17.75 21H6.25A3.25 3.25 0 0 1 3 17.75V6.25A3.25 3.25 0 0 1 6.25 3h4a.75.75 0 0 1 0 1.5zm6.5-.75a.75.75 0 0 1 .75-.75h6.75a.75.75 0 0 1 .75.75v6.75a.75.75 0 0 1-1.5 0V5.56l-5.22 5.22a.75.75 0 0 1-1.06-1.06l5.22-5.22H13.5a.75.75 0 0 1-.75-.75"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path fill="currentColor" d="M10 2.75a7.25 7.25 0 0 1 5.63 11.82l4.9 4.9a.75.75 0 0 1-.98 1.13l-.08-.07l-4.9-4.9A7.25 7.25 0 1 1 10 2.75m0 1.5a5.75 5.75 0 1 0 0 11.5a5.75 5.75 0 0 0 0-11.5"/></symbol>
+    <symbol id="i-reply" viewBox="0 0 24 24"><path fill="currentColor" d="M9.28 5.22a.75.75 0 0 1 0 1.06L5.56 10h7.69c3.94 0 7.25 3.03 7.25 7.25v1a.75.75 0 0 1-1.5 0v-1c0-3.37-2.62-5.75-5.75-5.75H5.56l3.72 3.72a.75.75 0 1 1-1.06 1.06l-5-5a.75.75 0 0 1 0-1.06l5-5a.75.75 0 0 1 1.06 0"/></symbol>
+    <symbol id="i-zoom-in" viewBox="0 0 24 24"><path fill="currentColor" d="M10 2.75a7.25 7.25 0 0 1 5.63 11.82l4.9 4.9a.75.75 0 0 1-.98 1.13l-.08-.07l-4.9-4.9A7.25 7.25 0 1 1 10 2.75m0 1.5a5.75 5.75 0 1 0 0 11.5a5.75 5.75 0 0 0 0-11.5m0 2a.75.75 0 0 1 .75.75v2.25H13a.75.75 0 0 1 0 1.5h-2.25V13a.75.75 0 0 1-1.5 0v-2.25H7a.75.75 0 0 1 0-1.5h2.25V7a.75.75 0 0 1 .75-.75"/></symbol>
+    <symbol id="i-zoom-out" viewBox="0 0 24 24"><path fill="currentColor" d="M10 2.75a7.25 7.25 0 0 1 5.63 11.82l4.9 4.9a.75.75 0 0 1-.98 1.13l-.08-.07l-4.9-4.9A7.25 7.25 0 1 1 10 2.75m0 1.5a5.75 5.75 0 1 0 0 11.5a5.75 5.75 0 0 0 0-11.5M7 9.25h6a.75.75 0 0 1 0 1.5H7a.75.75 0 0 1 0-1.5"/></symbol>
+    <symbol id="i-speaker-off" viewBox="0 0 24 24"><path fill="currentColor" d="M3.28 2.22a.75.75 0 1 0-1.06 1.06L6.438 7.5H4.25A2.25 2.25 0 0 0 2 9.749v4.497a2.25 2.25 0 0 0 2.25 2.25h3.68a.75.75 0 0 1 .498.19l4.491 3.994c.806.716 2.081.144 2.081-.934V16.06l5.72 5.72a.75.75 0 0 0 1.06-1.061zm13.861 11.74l1.138 1.137A7 7 0 0 0 19 12a7 7 0 0 0-.84-3.328a.75.75 0 0 0-1.32.714c.42.777.66 1.666.66 2.614c0 .691-.127 1.351-.359 1.96m2.247 2.246l1.093 1.094A9.96 9.96 0 0 0 22 12a9.96 9.96 0 0 0-1.96-5.946a.75.75 0 0 0-1.205.892A8.46 8.46 0 0 1 20.5 12a8.46 8.46 0 0 1-1.112 4.206M9.52 6.338l5.48 5.48V4.25c0-1.079-1.274-1.65-2.08-.934z"/></symbol>
+  </defs>
+</svg>
+
+<div id="app">
+  <header id="titlebar"><span class="tb-logo" aria-hidden="true">С</span><span class="tb-name">Сходка</span></header>
+
+  <!-- ============ Старт ============ -->
+  <section id="screen-start" class="screen center-screen">
+    <header class="brand">
+      <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <h1>Сходка</h1>
+      <p>Голос, чат и демонстрация экрана для своей компании</p>
+    </header>
+
+    <div class="start-grid">
+      <form id="form-connect" class="panel start-card">
+        <div class="card-icon"><svg><use href="#i-plug"/></svg></div>
+        <h2>Подключиться к серверу</h2>
+        <p class="hint">Адрес сервера или друга-хоста</p>
+        <label class="field"><span>Адрес</span><input id="connect-host" placeholder="78.17.198.59 или 26.123.45.67" autocomplete="off" spellcheck="false" required></label>
+        <label class="field" id="connect-pass-box" hidden><span>Пароль сервера</span><input id="connect-pass" type="password" autocomplete="off" spellcheck="false"></label>
+        <button class="btn primary big" type="submit">Подключиться</button>
+        <div id="connect-error" class="form-error" hidden></div>
+        <button class="btn small ghost" type="button" id="connect-forget" hidden>Забыть сервер и подключиться заново</button>
+        <div id="recent" class="recent"></div>
+      </form>
+
+      <form id="form-host" class="panel start-card">
+        <div class="card-icon"><svg><use href="#i-server"/></svg></div>
+        <h2>Создать свой сервер</h2>
+        <p class="hint">Ваш компьютер станет сервером, друзья подключатся к вам</p>
+        <div id="iface-list" class="ifaces"></div>
+        <details class="more">
+          <summary>Порт</summary>
+          <label class="field port"><span>Порт</span><input id="host-port" type="number" min="1025" max="65535" value="41234" required></label>
+        </details>
+        <button class="btn big" type="submit">Запустить сервер</button>
+        <div id="host-error" class="form-error" hidden></div>
+      </form>
+    </div>
+
+    <ol class="how">
+      <li><b>Сервер в интернете</b> (свой VPS) — просто введите его адрес и пароль. Radmin не нужен.</li>
+      <li><b>Или сервер дома.</b> Все в одной сети Radmin VPN, кто-то один нажимает «Запустить сервер» и отправляет друзьям адрес.</li>
+      <li><b>Подключение.</b> Остальные вводят адрес и нажимают «Подключиться». Голос и демки идут напрямую, а у кого не выходит — через ретранслятор сервера.</li>
+    </ol>
+  </section>
+
+  <!-- ============ Вход ============ -->
+  <section id="screen-auth" class="screen center-screen" hidden>
+    <form id="form-auth" class="panel auth-card">
+      <button class="btn ghost back" id="auth-back" type="button"><svg class="i"><use href="#i-back"/></svg>Назад</button>
+      <h2>Как вас зовут?</h2>
+      <p class="hint" id="auth-server-name"></p>
+      <label class="field"><span>Ник</span><input id="auth-name" maxlength="24" autocomplete="username" spellcheck="false" placeholder="Например, Даня" required></label>
+      <label class="field" id="auth-pass-row" hidden><span>Пароль аккаунта</span><input id="auth-pass" type="password" maxlength="64" autocomplete="current-password"></label>
+      <button class="btn primary big" type="submit" id="auth-submit">Войти</button>
+      <div id="auth-error" class="form-error" hidden></div>
+      <p class="hint small" id="auth-hint">На своём компьютере пароль не нужен: ник закрепится за ним.<span id="auth-pass-offer"> Зашли с другого компьютера? <button type="button" class="linkish" id="auth-pass-toggle">Войти с паролем</button></span></p>
+    </form>
+  </section>
+
+  <!-- ============ Основной экран ============ -->
+  <section id="screen-main" class="screen main-screen" hidden>
+    <aside id="sidebar">
+      <header class="server-head">
+        <div class="server-title">
+          <div class="server-name"><span id="conn-status" class="conn-dot ok"></span><span id="server-name">Сходка</span></div>
+          <div class="server-addr" id="server-addr"></div>
+        </div>
+        <button class="icon-btn" id="btn-invite" data-tip="Пригласить друзей"><svg><use href="#i-user-plus"/></svg></button>
+      </header>
+
+      <nav class="channels" id="channels">
+        <h3 class="group">Голосовая комната</h3>
+        <div id="voice-rooms"></div>
+
+        <h3 class="group">Личные сообщения</h3>
+        <div id="dm-list"></div>
+      </nav>
+
+      <div id="voice-bar" hidden>
+        <div class="vb-top">
+          <span class="vb-signal"></span>
+          <div class="vb-text">
+            <div class="vb-status" id="vb-status">Вы в голосе</div>
+            <button class="vb-room" id="btn-voice-view" data-tip="Открыть комнату"></button>
+          </div>
+          <button class="icon-btn" id="btn-screen" data-tip="Показать экран"><svg><use href="#i-screen"/></svg></button>
+          <button class="icon-btn danger" id="btn-leave" data-tip="Отключиться"><svg><use href="#i-hangup"/></svg></button>
+        </div>
+      </div>
+
+      <div class="theme-bar" id="theme-bar">
+        <button class="icon-btn theme-arrow" id="theme-prev" type="button" data-tip="Предыдущий дизайн"><svg class="i"><use href="#i-chev-up"/></svg></button>
+        <button class="theme-cur" id="theme-cur" type="button"><span class="theme-sw" id="theme-sw"></span><span class="theme-name" id="theme-name"></span></button>
+        <button class="icon-btn theme-arrow" id="theme-next" type="button" data-tip="Следующий дизайн"><svg class="i"><use href="#i-chev-up"/></svg></button>
+      </div>
+
+      <div class="user-panel">
+        <div class="avatar" id="me-avatar"></div>
+        <div class="me">
+          <div class="me-name" id="me-name"></div>
+          <div class="me-sub" id="me-sub">в сети</div>
+        </div>
+        <button class="icon-btn" id="btn-mute" data-tip="Микрофон · Ctrl+M"><svg><use href="#i-mic"/></svg></button>
+        <button class="icon-btn" id="btn-deafen" data-tip="Звук · Ctrl+D"><svg><use href="#i-head"/></svg></button>
+        <button class="icon-btn" id="btn-settings" data-tip="Настройки"><svg><use href="#i-sliders"/></svg></button>
+      </div>
+    </aside>
+
+    <main id="content">
+      <!-- голосовая комната -->
+      <div id="view-voice" class="view" hidden>
+        <header class="view-head"><span class="head-ico"><svg class="i"><use href="#i-volume"/></svg></span><div class="head-titles"><h2 id="voice-title"></h2><span class="head-sub" id="voice-sub"></span></div>
+          <button class="icon-btn head-help" id="btn-demo-help" data-tip="Шпаргалка демки"><svg><use href="#i-help"/></svg></button>
+          <button class="icon-btn head-log" id="btn-log" data-tip="Журнал ошибок · Ctrl+L"><svg><use href="#i-list"/></svg><span class="badge" id="btn-log-badge" hidden></span></button>
+          <button class="icon-btn head-toggle" id="btn-side" data-tip="Чат и участники"><svg><use href="#i-chat"/></svg><i class="dot" id="side-dot" hidden></i></button></header>
+        <div id="lobby" class="lobby" hidden>
+          <div class="lobby-tiles" id="lobby-tiles"></div>
+          <p class="lobby-text" id="lobby-text"></p>
+          <button class="btn primary lobby-join" id="lobby-join"><svg class="i"><use href="#i-volume"/></svg>Войти в комнату</button>
+        </div>
+        <div id="stage-area" class="stage-area">
+        <div id="stage" class="stage" hidden>
+          <video id="stage-video" autoplay playsinline muted></video>
+          <div class="stage-bar">
+            <span class="stage-health" id="stage-health" tabindex="0"><i></i></span>
+            <button class="stage-rep" id="stage-report"><svg class="i"><use href="#i-file"/></svg></button>
+            <div class="stage-info" id="stage-info"></div>
+            <div class="stage-switch" id="stage-switch" hidden></div>
+            <div class="zoom" id="stage-zoom">
+              <button class="icon-btn light" id="zoom-out" data-tip="Отдалить · колёсико вниз"><svg><use href="#i-zoom-out"/></svg></button>
+              <button class="zoom-val" id="zoom-val" data-tip="Как было (100%) · клавиша 0">100%</button>
+              <button class="zoom-val zoom-native" id="zoom-native" hidden data-tip="Настоящий размер 1:1 — мелкий текст без мыла · клавиша 1">1:1</button>
+              <button class="icon-btn light" id="zoom-in" data-tip="Приблизить · колёсико вверх, потом тяните мышкой"><svg><use href="#i-zoom-in"/></svg></button>
+            </div>
+            <div class="vol"><button class="icon-btn light" id="stage-mute" data-tip="Звук трансляции"><svg><use href="#i-volume"/></svg></button><input type="range" id="stage-vol" min="0" max="200" value="100" data-tip="Громкость трансляции"></div>
+            <button class="btn small" id="stage-lat"></button>
+            <button class="icon-btn light" id="stage-full" data-tip="На весь экран · двойной клик"><svg><use href="#i-max"/></svg></button>
+            <button class="btn small" id="stage-stop" data-tip="Перестать смотреть — у остальных показ продолжится">Не смотреть</button>
+          </div>
+        </div>
+        </div>
+        <div class="stage-strip" id="stage-strip">
+          <div class="ss-watch" id="ss-watch"></div>
+          <div class="ss-btns">
+            <div class="ss-seg" id="ss-lat"><button type="button" data-lat="smooth" data-tip="Плавно: копим 0,15 с картинки — меньше рывков">Плавно</button><button type="button" data-lat="low" data-tip="Быстро: минимум задержки, но на неровной сети возможны рывки">Быстро</button></div>
+            <button class="ss-btn" id="ss-report" type="button"><svg class="i"><use href="#i-pulse"/></svg><span>Отчёт о демке</span></button>
+            <button class="ss-btn" id="ss-stop" type="button" data-tip="Перестать смотреть — у остальных показ продолжится"><svg class="i"><use href="#i-x"/></svg><span>Не смотреть</span></button>
+          </div>
+        </div>
+        <div class="tiles-bar" id="tiles-bar"><button class="tiles-toggle" id="tiles-toggle" type="button"><svg class="i"><use href="#i-chev-up"/></svg><span></span></button></div>
+        <div id="tiles" class="tiles"></div>
+        <div id="room-empty" class="room-empty" hidden>
+          <p>Пока здесь только вы. Друзья увидят комнату слева и смогут зайти одним кликом.</p>
+          <button class="btn small" id="room-invite"><svg class="i"><use href="#i-user-plus"/></svg>Пригласить друзей</button>
+        </div>
+        <div class="callbar" id="callbar">
+          <div class="cb-group">
+            <button class="cb-btn" id="cb-mic"><svg><use href="#i-mic"/></svg></button>
+            <button class="cb-btn cb-chev" id="cb-mic-menu" data-tip="Микрофон, звук, шумоподавление"><svg><use href="#i-chev-up"/></svg></button>
+          </div>
+          <button class="cb-btn" id="cb-deafen"><svg><use href="#i-head"/></svg></button>
+          <span class="cb-sep"></span>
+          <div class="cb-group">
+            <button class="cb-btn" id="cb-screen"><svg><use href="#i-screen"/></svg></button>
+            <button class="cb-btn cb-chev" id="cb-screen-menu" data-tip="Показ экрана: качество, звук, смена окна"><svg><use href="#i-chev-up"/></svg></button>
+          </div>
+          <button class="cb-btn" id="cb-music" data-tip="Музыка для всех"><svg><use href="#i-music"/></svg></button>
+          <button class="cb-btn" id="cb-sfu"><svg><use href="#i-server"/></svg></button>
+          <button class="cb-btn" id="cb-noise"><svg><use href="#i-wave"/></svg></button>
+          <button class="cb-btn" id="cb-settings" data-tip="Настройки"><svg><use href="#i-sliders"/></svg></button>
+          <span class="cb-sep"></span>
+          <button class="cb-btn cb-leave" id="cb-leave" data-tip="Отключиться"><svg><use href="#i-hangup"/></svg></button>
+        </div>
+        <div id="quick-menu" class="quick-menu" hidden></div>
+      </div>
+
+    </main>
+
+    <aside id="side">
+      <div class="side-resize" id="side-resize" data-tip="Потяните, чтобы изменить ширину · двойной щелчок — как было"></div>
+      <header class="side-head">
+        <div class="seg side-tabs">
+          <button class="seg-btn active" data-side="chat">Чат<span class="badge" id="badge-chat" hidden></span></button>
+          <button class="seg-btn" data-side="members">На сервере <span class="seg-count" id="members-count"></span></button>
+        </div>
+        <button class="icon-btn" id="side-close" data-tip="Скрыть панель"><svg><use href="#i-x"/></svg></button>
+      </header>
+      <div id="pane-chat" class="side-pane">
+        <div class="chat-head" id="chat-head">
+          <button class="icon-btn" id="chat-back" data-tip="В общий чат" hidden><svg><use href="#i-back"/></svg></button>
+          <svg class="i head-i" id="chat-ico"><use href="#i-hash"/></svg><b id="chat-title">Общий чат</b><span class="head-sub" id="chat-sub"></span>
+          <button class="icon-btn chat-find" id="chat-find" data-tip="Поиск по переписке · Ctrl+F" hidden><svg><use href="#i-search"/></svg></button>
+        </div>
+        <div class="chat-search" id="chat-search" hidden>
+          <svg class="i"><use href="#i-search"/></svg>
+          <input id="chat-search-input" placeholder="Найти в переписке" maxlength="100" spellcheck="false" autocomplete="off">
+          <button class="icon-btn" type="button" id="chat-search-close" data-tip="Закрыть поиск · Esc"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="search-results" id="search-results" hidden></div>
+        <div class="messages" id="messages"></div>
+        <div class="drop-hint" id="drop-hint" hidden><svg class="i"><use href="#i-attach"/></svg>Отпустите, чтобы отправить</div>
+        <div class="upload-bar" id="upload-bar" hidden><svg class="i"><use href="#i-attach"/></svg><span id="upload-text">Отправляю…</span><small id="upload-meta"></small><i class="upload-progress"><b id="upload-progress"></b></i><button class="icon-btn" type="button" id="upload-cancel" data-tip="Отменить"><svg><use href="#i-x"/></svg></button></div>
+        <div class="compose-ctx" id="compose-ctx" hidden>
+          <svg class="i" id="compose-ctx-ico"><use href="#i-reply"/></svg>
+          <div class="cc-text"><b id="compose-ctx-title"></b><span id="compose-ctx-sub"></span></div>
+          <button class="icon-btn" type="button" id="compose-ctx-x" data-tip="Отменить · Esc"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <form class="composer" id="composer">
+          <button class="attach" type="button" id="composer-attach" data-tip="Отправить файл или картинку · можно перетащить или вставить Ctrl+V"><svg><use href="#i-attach"/></svg></button>
+          <input type="file" id="composer-file" multiple hidden>
+          <textarea id="composer-input" rows="1" placeholder="Сообщение" maxlength="2000"></textarea>
+          <button class="send" type="submit" data-tip="Отправить · Enter"><svg><use href="#i-send"/></svg></button>
+        </form>
+      </div>
+      <div id="pane-members" class="side-pane" hidden>
+        <div id="member-list"></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ============ Лог ============ -->
+  <div id="log-panel" hidden>
+    <div class="log-toolbar">
+      <strong>Журнал</strong>
+      <select id="log-filter">
+        <option value="all">Все записи</option>
+        <option value="warn">Важное</option>
+        <option value="errors">Только ошибки</option>
+      </select>
+      <input id="log-search" placeholder="Поиск">
+      <span class="grow"></span>
+      <button class="btn small" id="log-diag"><svg class="i"><use href="#i-pulse"/></svg>Проверить всё</button>
+      <button class="btn small" id="log-copy">Копировать</button>
+      <button class="btn small" id="log-save">Сохранить</button>
+      <button class="btn small" id="log-folder">Папка</button>
+      <button class="btn small" id="log-zip" data-tip="Все журналы одним архивом — на рабочий стол">На рабочий стол</button>
+      <button class="btn small" id="log-send" data-tip="Журнал за сегодня — сразу файлом в открытый чат">В чат</button>
+      <button class="btn small ghost" id="log-clear">Очистить</button>
+      <button class="icon-btn" id="log-close" data-tip="Закрыть · Ctrl+L"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div id="log-list" class="log-list"></div>
+  </div>
+  <button id="log-toggle" class="log-toggle" data-tip="Журнал ошибок · Ctrl+L"><svg class="i"><use href="#i-list"/></svg>Журнал<span id="log-badge" class="badge" hidden></span></button>
+  <div id="toasts"></div>
+  <div id="theme-menu" class="theme-menu" hidden></div>
+
+  <!-- ============ Приглашение ============ -->
+  <dialog id="invite" class="small-dialog">
+    <button class="icon-btn close" id="invite-close"><svg><use href="#i-x"/></svg></button>
+    <h2>Пригласить друзей</h2>
+    <p class="hint" id="invite-hint">Друзьям нужно скачать «Сходку» и ввести этот адрес:</p>
+    <div class="invite-addr"><code id="invite-addr"></code><button class="btn primary" id="invite-copy"><svg class="i"><use href="#i-copy"/></svg>Копировать</button></div>
+    <p class="hint small">Или скопируйте готовое сообщение для чата:</p>
+    <textarea id="invite-text" rows="3" readonly></textarea>
+    <button class="btn" id="invite-copy-text"><svg class="i"><use href="#i-copy"/></svg>Копировать сообщение</button>
+  </dialog>
+
+  <!-- ============ Шпаргалка демки (1.20.2, кнопка «?» в шапке комнаты) ============ -->
+  <dialog id="demo-help" class="help-dlg">
+    <button class="icon-btn close" id="demo-help-close" type="button"><svg><use href="#i-x"/></svg></button>
+    <div class="help-body">
+      <h2>Шпаргалка демки</h2>
+      <p class="help-sum"><b>Для игры:</b> H.264 (рекомендуется) + сервер, если смотрят двое и больше.</p>
+      <section class="help-sec">
+        <h3>Кодек</h3>
+        <table class="help-tbl">
+          <thead><tr><th>Кодек</th><th>Описание</th></tr></thead>
+          <tbody>
+            <tr class="rec"><td class="hn">H.264 (рекомендуется)</td><td>
+              <p class="put"><b>Ставь:</b> для игр, всегда.</p>
+              <p class="plus"><b>Плюс:</b> сжимает отдельный чип видеокарты, поэтому FPS в игре не падает и у друзей не тормозит.</p>
+              <p class="minus"><b>Минус:</b> на некоторых AMD не работает.</p></td></tr>
+            <tr><td class="hn">H.264 — процессор</td><td>
+              <p class="put"><b>Ставь:</b> если H.264 (рекомендуется) не работает.</p>
+              <p class="plus"><b>Плюс:</b> работает на любом ПК.</p>
+              <p class="minus"><b>Минус:</b> одно ядро не тянет 1080p 60, картинка у друзей мельчает, FPS может просесть.</p></td></tr>
+            <tr><td class="hn">H.264 — несколько ядер</td><td>
+              <p class="put"><b>Ставь:</b> если на «процессоре» картинка мелкая, а процессор мощный (Ryzen 7, Core i7).</p>
+              <p class="plus"><b>Плюс:</b> у друзей ~55 кадров вместо 40.</p>
+              <p class="minus"><b>Минус:</b> FPS в игре проседает сильнее.</p></td></tr>
+            <tr><td class="hn">VP9</td><td>
+              <p class="put"><b>Ставь:</b> если не играете, а у друзей мыло и «квадраты».</p>
+              <p class="plus"><b>Плюс:</b> на том же интернете картинка чётче.</p>
+              <p class="minus"><b>Минус:</b> грузит процессор, в игре рывки.</p></td></tr>
+            <tr><td class="hn">AV1</td><td>
+              <p class="put"><b>Ставь:</b> если не играете, VP9 не помог и у друзей RTX 3000 или новее.</p>
+              <p class="plus"><b>Плюс:</b> самая чёткая картинка на слабом интернете.</p>
+              <p class="minus"><b>Минус:</b> на RTX 2060 и старше у друзей тормозит видео и рябит звук.</p></td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="help-sec">
+        <h3>Сервер <span>значок на панели звонка, можно переключать во время показа</span></h3>
+        <table class="help-tbl">
+          <thead><tr><th>Сервер</th><th>Описание</th></tr></thead>
+          <tbody>
+            <tr class="rec"><td class="hn">Включён</td><td>
+              <p class="put"><b>Ставь:</b> если смотрят двое и больше.</p>
+              <p class="plus"><b>Плюс:</b> вы отправляете видео один раз, сервер раздаёт его всем. Плохой интернет одного зрителя тормозит только у него.</p>
+              <p class="minus"><b>Минус:</b> нет.</p></td></tr>
+            <tr><td class="hn">Выключен</td><td>
+              <p class="put"><b>Ставь:</b> если смотрит один.</p>
+              <p class="plus"><b>Плюс:</b> для одного зрителя качество то же, что с сервером.</p>
+              <p class="minus"><b>Минус:</b> ваш интернет делится на всех зрителей.</p></td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="help-sec">
+        <h3>Захват <span>стрелка у кнопки показа → «Захват»</span></h3>
+        <table class="help-tbl">
+          <thead><tr><th>Захват</th><th>Описание</th></tr></thead>
+          <tbody>
+            <tr><td class="hn">«Видеокартой, как OBS»</td><td>
+              <p class="put"><b>Ставь:</b> если проседает FPS.</p>
+              <p class="plus"><b>Плюс:</b> процессор не участвует совсем.</p>
+              <p class="minus"><b>Минус:</b> только весь экран, всегда H.264 и разрешение монитора. Без сервера качество у всех падает до уровня самого медленного зрителя.</p></td></tr>
+            <tr><td class="hn">Игра в «Оконный без рамки»</td><td>
+              <p class="put"><b>Ставь:</b> если экран моргает при захвате.</p>
+              <p class="plus"><b>Плюс:</b> игра перестаёт забирать экран.</p>
+              <p class="minus"><b>Минус:</b> в некоторых играх FPS чуть ниже, чем в полноэкранном режиме.</p></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </dialog>
+
+  <!-- ============ Аватарка: обрезка ============ -->
+  <dialog id="avatar-dlg" class="small-dialog avatar-dlg">
+    <button class="icon-btn close" id="crop-close" type="button"><svg><use href="#i-x"/></svg></button>
+    <h2>Аватарка</h2>
+    <p class="hint small">Перетащите картинку мышкой, колёсиком или ползунком — приблизить</p>
+    <div class="crop-box"><canvas id="crop-canvas" width="600" height="600"></canvas></div>
+    <div class="crop-zoom"><svg class="i"><use href="#i-image"/></svg><input type="range" id="crop-zoom" min="1" max="5" step="0.01" value="1"><svg class="i big"><use href="#i-image"/></svg></div>
+    <div class="dlg-actions">
+      <button class="btn ghost" id="crop-cancel" type="button">Отмена</button>
+      <button class="btn primary" id="crop-save" type="button">Сохранить</button>
+    </div>
+  </dialog>
+
+  <!-- ============ Настройки ============ -->
+  <dialog id="settings">
+    <div class="settings-wrap">
+      <nav class="settings-nav">
+        <h2>Настройки</h2>
+        <button class="snav" data-stab="profile"><svg class="i"><use href="#i-person"/></svg>Профиль</button>
+        <button class="snav active" data-stab="mic"><svg class="i"><use href="#i-mic"/></svg>Микрофон</button>
+        <button class="snav" data-stab="sound"><svg class="i"><use href="#i-head"/></svg>Звук</button>
+        <button class="snav" data-stab="screen"><svg class="i"><use href="#i-screen"/></svg>Показ экрана</button>
+        <button class="snav" data-stab="net"><svg class="i"><use href="#i-link"/></svg>Сеть</button>
+        <button class="snav" data-stab="about"><svg class="i"><use href="#i-info"/></svg>О программе</button>
+        <span class="grow"></span>
+        <button class="btn small ghost" id="btn-logout" data-tip="Выйти из аккаунта на этом компьютере"><svg class="i"><use href="#i-leave"/></svg>Выйти из аккаунта</button>
+      </nav>
+      <div class="settings-body">
+        <button class="icon-btn close" id="settings-close" data-tip="Закрыть · Esc"><svg><use href="#i-x"/></svg></button>
+
+        <section data-spane="mic">
+          <h2>Микрофон</h2>
+          <label class="field"><span>Какой микрофон использовать</span><select id="s-input"></select></label>
+          <div class="meter-box">
+            <div class="meter-top"><span>Скажите что-нибудь — полоска должна двигаться</span><button class="btn small" type="button" id="s-test"><svg class="i"><use href="#i-play"/></svg>Послушать себя</button></div>
+            <div class="meter"><div class="meter-fill" id="s-meter"></div><div class="meter-thr" id="s-meter-thr"></div></div>
+          </div>
+          <label class="field"><span>Громкость микрофона <b id="s-gain-val"></b></span><input type="range" id="s-gain" min="0" max="300" step="5"></label>
+
+          <div class="field"><span>Когда передавать голос</span>
+            <div class="choice">
+              <label><input type="radio" name="s-mode" value="vad"><b>Когда говорю</b><small>Микрофон включается сам, когда вы говорите</small></label>
+              <label><input type="radio" name="s-mode" value="ptt"><b>Пока держу клавишу</b><small>Как рация: говорите, зажав кнопку</small></label>
+            </div>
+          </div>
+          <div id="s-vad-box">
+            <label class="check"><input type="checkbox" id="s-vad-auto"> Подбирать чувствительность автоматически</label>
+            <label class="field" id="s-vad-manual"><span>Чувствительность <b id="s-vad-val"></b></span><input type="range" id="s-vad" min="-90" max="-10" step="1"></label>
+            <p class="hint small" id="s-vad-note"></p>
+          </div>
+          <div id="s-ptt-box">
+            <div class="ptt-row"><span>Клавиша</span><kbd id="s-ptt-key">не назначена</kbd><button class="btn small" type="button" id="s-ptt-bind">Назначить</button></div>
+            <label class="check"><input type="checkbox" id="s-ptt-global"> Работать и в играх (когда окно свёрнуто)</label>
+            <label class="field"><span>Задержка отпускания <b id="s-ptt-rel-val"></b></span><input type="range" id="s-ptt-rel" min="0" max="1000" step="20"></label>
+          </div>
+
+          <h3 class="sub-h">Шумоподавление</h3>
+          <label class="field"><span>Режим</span>
+            <select id="s-noise">
+              <option value="dfn">Лучшее — нейросеть DeepFilterNet3 (рекомендуется)</option>
+              <option value="rnnoise">Лёгкое — для слабых компьютеров</option>
+              <option value="browser">Простое</option>
+              <option value="off">Выключено</option>
+            </select>
+          </label>
+          <div class="field" id="s-strength-box"><span>Сила</span>
+            <div class="seg wide" id="s-strength">
+              <button type="button" class="seg-btn" data-strength="soft">Мягко</button>
+              <button type="button" class="seg-btn" data-strength="normal">Обычно</button>
+              <button type="button" class="seg-btn" data-strength="strong">Сильно</button>
+            </div>
+            <small class="hint" id="s-strength-note"></small>
+          </div>
+          <label class="check"><input type="checkbox" id="s-keyboard"> Не включать микрофон от стука клавиатуры и мыши</label>
+          <label class="check"><input type="checkbox" id="s-highpass"> Убирать низкий гул (стол, вентилятор, вибрация)</label>
+
+          <div class="ab-box">
+            <div class="ab-top">
+              <div><b>Сравнить на слух</b><small>Запишем 5 секунд: как было и как вас слышат друзья</small></div>
+              <button class="btn small" type="button" id="s-rec">Записать 5 секунд</button>
+            </div>
+            <div class="ab-play" id="s-ab" hidden>
+              <button class="btn small" type="button" id="s-play-before"><svg class="i"><use href="#i-play"/></svg>Как было</button>
+              <button class="btn small primary" type="button" id="s-play-after"><svg class="i"><use href="#i-play"/></svg>Как слышат друзья</button>
+            </div>
+          </div>
+
+          <details class="more">
+            <summary>Дополнительно</summary>
+            <label class="check"><input type="checkbox" id="s-echo"> Убирать эхо (нужно, если вы без наушников)</label>
+            <label class="check"><input type="checkbox" id="s-agc"> Автоматически выравнивать громкость</label>
+          </details>
+        </section>
+
+        <section data-spane="sound" hidden>
+          <h2>Звук</h2>
+          <label class="field"><span>Куда выводить звук</span><select id="s-output"></select></label>
+          <label class="field"><span>Общая громкость <b id="s-outvol-val"></b></span><input type="range" id="s-outvol" min="0" max="200" step="5"></label>
+          <label class="check"><input type="checkbox" id="s-sounds"> Звуки: вход и выход, новые сообщения, начало и конец демонстрации, зритель зашёл на вашу демку</label>
+          <p class="hint small">Чтобы сделать кого-то тише или громче — нажмите на него правой кнопкой мыши.</p>
+        </section>
+
+        <section data-spane="screen" hidden>
+          <h2>Показ экрана</h2>
+          <div class="field"><span>Что показываю</span>
+            <div class="presets two" id="s-smodes">
+              <button type="button" data-smode="motion"><b>Игра</b><small>Важнее плавность: при нехватке скорости или процессора сохраняются кадры</small></button>
+              <button type="button" data-smode="detail"><b>Текст</b><small>Важнее чёткость букв: при нехватке сохраняется резкость, кадров меньше</small></button>
+            </div>
+          </div>
+          <div class="two">
+            <label class="field"><span>Разрешение</span><select id="s-res"><option value="720">720p</option><option value="1080">1080p</option><option value="1440">1440p</option><option value="source">Как на экране</option></select></label>
+            <label class="field"><span>Кадров в секунду</span><select id="s-fps"><option value="30">30</option><option value="60">60</option></select></label>
+          </div>
+          <label class="field"><span>Скорость на каждого зрителя <b id="s-bitrate-val"></b></span><input type="range" id="s-bitrate" min="1" max="25" step="1"></label>
+          <label class="field"><span>Кодек</span><select id="s-codec"></select></label>
+          <label class="check"><input type="checkbox" id="s-gpu"> <span><b>Видеокартой, как OBS</b> — экран снимает и сжимает видеокарта отдельным помощником: процессор почти не занят, кодек выше не важен. Только весь экран, в разрешении экрана; превью своей демки нет. В игру помощник не встраивается — для античитов это обычная запись экрана. Включается со следующего показа</span></label>
+          <p class="hint small" id="s-codec-note" hidden>Пока включено «Видеокартой, как OBS», кодек выше не действует: видеокарта всегда сжимает в H.264, в разрешении экрана.</p>
+          <div class="nettest">
+            <button class="btn" type="button" id="s-nettest"><svg class="i"><use href="#i-pulse"/></svg>Проверить интернет</button>
+            <div class="nettest-out"><p class="hint small" id="s-net"></p><div class="nettest-bar" id="s-net-bar" hidden><i></i></div></div>
+          </div>
+          <p class="hint small">Звук выбирается, когда начинаете показ. Друзья не слышат себя в звуке трансляции — это работает само.</p>
+          <label class="field"><span>Когда смотрю чужую демку</span><select id="s-slat"><option value="smooth">Плавно (запас 0,15 с — меньше рывков)</option><option value="low">Минимум задержки</option></select></label>
+        </section>
+
+        <section data-spane="net" hidden>
+          <h2>Сеть</h2>
+          <label class="check"><input type="checkbox" id="s-p2p"> <span><b>Большие файлы — напрямую с моего компьютера</b> — файлы от 10 МБ не загружаются на сервер, друзья скачивают их прямо у вас. Скачать такой файл можно, только пока «Сходка» у вас включена, и не у всех получается напрямую. Выключено — всё через сервер (так надёжнее). Если на сервере не хватит места, большой файл и так пойдёт напрямую</span></label>
+          <p class="hint">Ваши адреса:</p>
+          <div id="s-ifaces" class="ifaces"></div>
+          <details class="more">
+            <summary>Для опытных</summary>
+            <p class="hint small">Сервер в интернете выдаёт свой ретранслятор сам, и через Radmin VPN это тоже не нужно. Только для особых случаев — свои STUN/TURN-серверы, по одному в строке:<br><code>stun:stun.example.ru:3478</code><br><code>turn:логин:пароль@turn.example.ru:3478</code></p>
+            <label class="field"><span>STUN/TURN</span><textarea id="s-ice" rows="3" spellcheck="false"></textarea></label>
+            <label class="check"><input type="checkbox" id="s-relay"> Соединяться только через ретранслятор сервера (если голос не проходит напрямую)</label>
+            <label class="check"><input type="checkbox" id="s-sfu"> Демки — через сервер, если он умеет (размножитель): стример отправляет демку один раз, сервер раздаёт её всем. Выключено — демки только напрямую</label>
+            <label class="check"><input type="checkbox" id="s-verbose"> Подробный журнал</label>
+          </details>
+        </section>
+
+        <section data-spane="profile" hidden>
+          <h2>Профиль</h2>
+          <div class="avatar-row">
+            <button type="button" class="avatar-pick" id="s-avatar" data-tip="Сменить аватарку"></button>
+            <div class="av-actions">
+              <div class="av-btns">
+                <button class="btn small" type="button" id="s-avatar-choose"><svg class="i"><use href="#i-image"/></svg>Выбрать картинку</button>
+                <button class="btn small ghost" type="button" id="s-avatar-clear" hidden>Убрать</button>
+              </div>
+              <p class="hint small" id="s-avatar-hint">Картинка JPG, PNG или WebP — после выбора её можно обрезать кружком.</p>
+            </div>
+            <input type="file" id="s-avatar-file" accept="image/png,image/jpeg,image/webp" hidden>
+          </div>
+          <form class="nick-form" id="nick-form">
+            <label class="field"><span>Ник на этом сервере</span><input id="s-nick" maxlength="24" autocomplete="off" spellcheck="false"></label>
+            <button class="btn" type="submit" id="s-nick-save">Сменить ник</button>
+          </form>
+          <p class="hint small" id="s-nick-hint">Друзья, личные сообщения и история останутся — у всех просто поменяется имя. Ник: 2–24 символа, буквы, цифры, _ . -</p>
+          <h3>Пароль аккаунта</h3>
+          <p class="hint small" id="s-pw-state"></p>
+          <form class="pw-form" id="pw-form" autocomplete="on">
+            <input type="text" id="s-pw-user" autocomplete="username" hidden>
+            <label class="field" id="s-pw-cur-row" hidden><span>Текущий пароль</span><input id="s-pw-cur" type="password" maxlength="64" autocomplete="current-password"></label>
+            <label class="field"><span id="s-pw-new-label">Новый пароль</span><input id="s-pw-new" type="password" maxlength="64" autocomplete="new-password" placeholder="минимум 6 символов"></label>
+            <button class="btn" type="submit" id="s-pw-save">Задать пароль</button>
+          </form>
+          <h3>Окно</h3>
+          <label class="check"><input type="checkbox" id="s-tray"> Крестик сворачивает Сходку в трей (к часам) — голос и сервер продолжают работать</label>
+        </section>
+
+        <section data-spane="about" hidden>
+          <h2>О программе</h2>
+          <pre id="s-about" class="about"></pre>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ============ Выбор экрана ============ -->
+  <dialog id="picker">
+    <div class="picker-head">
+      <h2>Что показать?</h2>
+      <div class="seg">
+        <button class="seg-btn active" data-ptab="screen">Весь экран</button>
+        <button class="seg-btn" data-ptab="window">Окно программы</button>
+      </div>
+      <button class="icon-btn" id="picker-close"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div id="picker-grid" class="picker-grid"></div>
+    <div class="picker-foot">
+      <div class="picker-info"><span id="picker-summary" class="hint small"></span><span id="picker-sound" class="hint small picker-sound"></span><span id="picker-warn" class="hint small picker-warn"></span></div>
+      <div class="seg picker-snd" id="picker-snd"></div>
+      <button class="btn primary" id="picker-go" disabled>Показать</button>
+    </div>
+  </dialog>
+
+  <div id="popover" class="popover" hidden>
+    <div class="pop-title" id="pop-title"></div>
+    <label class="field"><span>Громкость <b id="pop-vol-val"></b></span><input type="range" id="pop-vol" min="0" max="200" step="5"></label>
+    <button class="btn small" id="pop-dm">Написать</button>
+    <button class="btn small ghost" id="pop-log" hidden data-tip="Программа человека сама пришлёт вам журнал за последние дни в личку, он сразу скачается в «Загрузки»"><svg class="i"><use href="#i-save"/></svg>Скачать журнал</button>
+    <button class="btn small ghost" id="pop-release" hidden data-tip="Если человек потерял пароль и папку программы: следующий вход под этим ником заберёт аккаунт со всей перепиской"><svg class="i"><use href="#i-person"/></svg>Освободить ник</button>
+    <button class="btn small danger-ghost" id="pop-del" hidden><svg class="i"><use href="#i-trash"/></svg>Удалить с сервера</button>
+  </div>
+  <div id="ctx-menu" class="quick-menu ctx-menu" popover="manual" hidden></div>
+  <div id="lightbox" class="lightbox" hidden>
+    <img id="lightbox-img" alt="">
+    <div class="lb-bar">
+      <button class="btn small" id="lb-copy"><svg class="i"><use href="#i-copy"/></svg>Копировать</button>
+      <button class="btn small" id="lb-save"><svg class="i"><use href="#i-save"/></svg>Сохранить</button>
+      <button class="icon-btn" id="lb-close" data-tip="Закрыть · Esc"><svg><use href="#i-x"/></svg></button>
+    </div>
+  </div>
+  <div id="tip" class="tip" hidden></div>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+DeepFilterNet3 (c) Hendrik Schröter, MIT/Apache-2.0 — https://github.com/Rikorose/DeepFilterNet
+Wasm build and AudioWorklet: @workadventure/noise-suppression 0.2.0 (MIT) — https://github.com/workadventure/noise-suppression
