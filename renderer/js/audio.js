@@ -216,6 +216,7 @@ export class Mic {
       node.connect(this.gain); this.gain.connect(this.analyser);
       this.gain.connect(this.level2); this.level2.connect(this.preroll); this.preroll.connect(this.gate); this.gate.connect(dest);
       this.dest = dest; this.musicG = 1; this.hookMusic(); // музыка для всех — мимо «ворот» (music.js)
+      this.hookSfx(); // звуки для всех — тоже мимо «ворот» (soundboard.js)
       // отвод для проверки «как слышат друзья» (после обработки, без учёта кнопки/порога)
       this.testDest = ctx.createMediaStreamDestination();
       this.level2.connect(this.testDest);
@@ -285,6 +286,16 @@ export class Mic {
     this.musicGain = this.ctx.createGain(); this.musicG = 1; this.musicGain.gain.value = 1;
     this.musicSrc.connect(this.musicGain); this.musicGain.connect(this.dest);
   }
+  // Звуки для всех (soundboard.js, 1.21): так же, как музыка, — после «ворот», слышно и с выключенным микрофоном
+  setSfx(stream) { this.sfxStream = stream || null; this.hookSfx(); }
+  get sfxLive() { return !!this.sfxSrc; }
+  hookSfx() {
+    if (this.sfxSrc) { try { this.sfxSrc.disconnect(); } catch (_) { /* ignore */ } }
+    this.sfxSrc = null;
+    if (!this.sfxStream || !this.ctx || !this.dest || this.ctx.state === 'closed') return;
+    this.sfxSrc = this.ctx.createMediaStreamSource(this.sfxStream);
+    this.sfxSrc.connect(this.dest);
+  }
   setMuted(m) { this.muted = !!m; }
   setPtt(down) {
     if (down === this.pttDown) return;
@@ -335,7 +346,7 @@ export class Mic {
     const den = this.denoiser; const raw = this.raw; const ctx = this.ctx; const wasSpeaking = this.speaking;
     this.denoiser = null; this.raw = null; this.ctx = null; this.track = null; this.stream = null; this.analyser = null; this.testDest = null; this.vad = null;
     this.level2 = null; this.preroll = null; this.agcDb = 0; this.speechDb = null;
-    this.dest = null; this.musicSrc = null; this.musicGain = null;
+    this.dest = null; this.musicSrc = null; this.musicGain = null; this.sfxSrc = null;
     this.level = -100; this.open = false; this.speaking = false;
     if (den && den.destroy) { try { den.destroy(); } catch (_) { /* ignore */ } }
     if (raw) raw.getTracks().forEach((t) => t.stop());

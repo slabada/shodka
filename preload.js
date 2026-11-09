@@ -42,6 +42,19 @@ contextBridge.exposeInMainWorld('api', {
     install: () => ipcRenderer.invoke('update:install'),
     onState: on('update:state'),
   },
+  // 1.21: «Звуки для всех» — свои файлы звуков и клавиши (в т. ч. в свёрнутом окне)
+  sfx: {
+    list: () => ipcRenderer.invoke('sfx:list'),
+    savePrefs: (prefs) => ipcRenderer.invoke('sfx:prefs', prefs),
+    add: (name, ext, bytes) => ipcRenderer.invoke('sfx:add', { name, ext, bytes }),
+    rename: (id, name) => ipcRenderer.invoke('sfx:rename', { id, name }),
+    remove: (id) => ipcRenderer.invoke('sfx:remove', id),
+    read: (id) => ipcRenderer.invoke('sfx:read', id),
+    setBinds: (list) => ipcRenderer.invoke('sfx:binds', list),
+    capture: () => ipcRenderer.invoke('sfx:capture'),
+    captureCancel: () => ipcRenderer.invoke('sfx:captureCancel'),
+    onFire: on('sfx:fire'),
+  },
   // звук компьютера без звука «Сходки» (помощник skh-audiocap.exe)
   procAudio: {
     available: process.platform === 'win32' || !!process.env.SKHODKA_FAKE_PROCAUDIO,

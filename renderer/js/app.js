@@ -14,6 +14,7 @@ import { DemoReports } from './demoreport.js';
 import { isBackground, onBackground, setSharing } from './footprint.js';
 import { THEMES, themeById, applyTheme, swatchCss } from './themes.js';
 import { MusicPlayer } from './music.js';
+import { Soundboard } from './soundboard.js';
 
 const api = window.api;
 const $ = (id) => document.getElementById(id);
@@ -30,6 +31,8 @@ const mic = new Mic();
 const output = new Output();
 // музыка для всех: свои файлы подмешиваются в голос — слышат все в комнате (music.js)
 const music = new MusicPlayer({ mic, output, voice: () => S.voice, toast: (t, o) => toast(t, o) });
+// звуки для всех (1.21): смех, «ба-дум-тсс» и свои файлы по кнопке или клавише — тоже через голос (soundboard.js)
+const sfx = new Soundboard({ mic, output, voice: () => S.voice, toast: (t, o) => toast(t, o) });
 setVerbose(settings.verboseLog);
 applyTheme(themeById(settings.theme)); // 1.20: дизайн — сразу, до первой отрисовки окна
 
@@ -1702,6 +1705,7 @@ async function localLeaveVoice(silent) {
   if (S.stageFull) setStageFull(false);
   if (S.demo) { S.demo.abort('вы вышли из комнаты'); S.demo = null; }
   music.leave();
+  sfx.leave();
   if (S.voice) await S.voice.leave();
   S.voice = null;
   const was = S.inVoice;
@@ -1766,9 +1770,19 @@ function renderMusicBtn() {
   b.dataset.tip = music.app ? `Для всех звучит: ${music.app.name}` : music.playing ? `Музыка для всех: ${music.current.name}` : 'Музыка для всех';
 }
 music.onchange = renderMusicBtn;
-$('cb-music').onclick = () => { if (music.open) music.hide(); else { closeQuickMenu(); music.show($('cb-music'), $('callbar')); } };
-addEventListener('resize', () => { if (music.open) music.place(); });
+$('cb-music').onclick = () => { if (music.open) music.hide(); else { closeQuickMenu(); sfx.hide(); music.show($('cb-music'), $('callbar')); } };
+addEventListener('resize', () => { if (music.open) music.place(); if (sfx.open) sfx.place(); });
 renderMusicBtn();
+sfx.build($('view-voice'));
+function renderSfxBtn() {
+  const b = $('cb-sfx');
+  b.classList.toggle('on', sfx.live);
+  b.classList.toggle('soft-on', !sfx.live && sfx.open);
+}
+sfx.onchange = renderSfxBtn;
+$('cb-sfx').onclick = () => { if (sfx.open) sfx.hide(); else { closeQuickMenu(); music.hide(); sfx.show($('cb-sfx'), $('callbar')); } };
+renderSfxBtn();
+sfx.init();
 $('room-invite').onclick = () => openInvite();
 $('cb-sfu').onclick = () => {
   if (!S.sfuOn) { toast('На этом сервере нет размножителя — демки и так идут напрямую', { hint: 'Размножитель есть у сервера 1.16 на VPS.' }); return; }
@@ -1936,6 +1950,8 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('quic
 function sendVoiceState() { if (S.inVoice && S.conn) S.conn.send({ type: 'voice_state', muted: S.muted || S.deafened, deafened: S.deafened }); }
 function renderMuteButtons() {
   music.setDeafened(S.deafened);
+  sfx.setDeafened(S.deafened);
+  if (sfx.open) sfx.render();
   const micOff = S.muted || S.deafened;
   $('btn-mute').classList.toggle('off', micOff);
   setIcon($('btn-mute'), micOff ? 'mic-off' : 'mic');

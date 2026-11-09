@@ -1258,7 +1258,26 @@ body.th-p3 .msg .msg-acts { top: -18px; }
 .music-panel .mp-app .tt b { font-weight: 500; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .music-panel .mp-hint { color: var(--text2); font-size: 12px; line-height: 1.4; padding: 0 6px; }
 .music-panel .mp-ico { width: 18px; height: 18px; flex: none; }
-.music-panel .mp-refresh { align-self: flex-start; }
+/* Звуки для всех (1.21) — та же панель, что у музыки, внутри сетка плиток */
+.sfx-panel { width: 380px; }
+.sfx-panel .sfx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; overflow-y: auto; max-height: 330px; padding: 2px; }
+.sfx-panel .sfx-tile { background: var(--ink0); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-width: 0; transition: border-color .15s, background .15s; }
+.sfx-panel .sfx-tile.playing { border-color: var(--acc1); background: var(--lamp-soft); }
+.sfx-panel .sfx-play { border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; font-weight: 500; text-align: left; padding: 9px 10px 4px; cursor: pointer; border-radius: 12px 12px 0 0; min-width: 0; }
+.sfx-panel .sfx-play:hover { color: var(--acc1); }
+.sfx-panel .sfx-play:active { transform: scale(.98); }
+.sfx-panel .sfx-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sfx-panel .sfx-tile.playing .sfx-name { color: var(--acc1); }
+.sfx-panel .sfx-tools { display: flex; align-items: center; gap: 2px; padding: 0 4px 5px 6px; }
+.sfx-panel .sfx-key { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text3); font: inherit; font-size: 11.5px; text-align: left; padding: 3px 4px; border-radius: 7px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sfx-panel .sfx-key:hover { background: var(--ink3); color: var(--text2); }
+.sfx-panel .sfx-key.set { color: var(--text2); font-variant-numeric: tabular-nums; }
+.sfx-panel .sfx-key.wait { color: var(--acc1); background: var(--lamp-soft); }
+.sfx-panel .sfx-mini { border: 0; background: transparent; color: var(--text3); width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; cursor: pointer; flex: none; opacity: .7; }
+.sfx-panel .sfx-tile:hover .sfx-mini { opacity: 1; }
+.sfx-panel .sfx-mini:hover { background: var(--ink3); color: var(--text); }
+.sfx-panel .sfx-mini svg { width: 13px; height: 13px; }
+.sfx-panel .sfx-keys { padding: 0 6px; color: var(--text3); font-size: 12px; line-height: 1.4; }.music-panel .mp-refresh { align-self: flex-start; }
 .music-panel .mp-now[hidden], .music-panel .mp-ctl[hidden], .music-panel .mp-vol[hidden], .music-panel .mp-link[hidden] { display: none; }
 .music-panel .mp-qhead > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .music-panel .mp-add { display: flex; gap: 4px; }

@@ -65,6 +65,7 @@ const procAudio = setupProcAudio({ ipcMain, app, log });
 require('./main/musicapps')({ ipcMain, app, log }); // «Музыка для всех» → окна программ, включая свёрнутые
 const videoCap = setupVideoCap({ ipcMain, app, log, screenRect: (id) => screenRectOf(id) });
 require('./main/updater')({ ipcMain, app, log, getWin: () => win }); // 1.20.5: обновления из GitHub Releases
+require('./main/soundboard')({ ipcMain, app, log }); // 1.21: «Звуки для всех» — свои файлы звуков
 
 let win = null;
 let server = null;
@@ -490,6 +491,11 @@ let hook = null;
 let hookStarted = false;
 let pttBinding = null;
 let captureResolve = null;
+// 1.21: клавиши «Звуков для всех» — [{ id, code, ctrl, alt, shift }] (коды uiohook)
+let sfxBinds = [];
+let sfxCaptureResolve = null;
+const keysDown = new Set();
+const SFX_MODIFIERS = new Set([29, 3613, 42, 54, 56, 3640, 3675, 3676]); // Ctrl, Shift, Alt, Win (левые и правые)
 function loadHook() {
   if (hook !== null) return hook;
   try {
@@ -506,10 +512,20 @@ function startHook() {
   const match = (type, code) => pttBinding && pttBinding.type === type && pttBinding.code === code;
   const emit = (down) => win && !win.isDestroyed() && win.webContents.send('ptt', down);
   h.on('keydown', (e) => {
+    const repeat = keysDown.has(e.keycode); keysDown.add(e.keycode); // зажатая клавиша шлёт keydown много раз
+    if (sfxCaptureResolve) {
+      if (SFX_MODIFIERS.has(e.keycode)) return; // ждём основную клавишу сочетания
+      const r = sfxCaptureResolve; sfxCaptureResolve = null;
+      return r(e.keycode === 1 || e.keycode === 14 ? { clear: true } : { code: e.keycode, ctrl: !!e.ctrlKey, alt: !!e.altKey, shift: !!e.shiftKey });
+    }
     if (captureResolve) { const r = captureResolve; captureResolve = null; return r({ type: 'key', code: e.keycode }); }
     if (match('key', e.keycode)) emit(true);
+    if (!repeat && sfxBinds.length) {
+      const b = sfxBinds.find((x) => x.code === e.keycode && !!x.ctrl === !!e.ctrlKey && !!x.alt === !!e.altKey && !!x.shift === !!e.shiftKey);
+      if (b && win && !win.isDestroyed()) win.webContents.send('sfx:fire', b.id);
+    }
   });
-  h.on('keyup', (e) => { if (match('key', e.keycode)) emit(false); });
+  h.on('keyup', (e) => { keysDown.delete(e.keycode); if (match('key', e.keycode)) emit(false); });
   h.on('mousedown', (e) => {
     if (captureResolve && e.button > 2) { const r = captureResolve; captureResolve = null; return r({ type: 'mouse', code: e.button }); }
     if (match('mouse', e.button)) emit(true);
@@ -648,6 +664,21 @@ function setupIpc() {
       setTimeout(() => { if (captureResolve === resolve) { captureResolve = null; resolve(null); } }, 10000);
     });
   });
+  // 1.21: «Звуки для всех» — клавиши работают и в свёрнутом окне (в игре), если глобальный перехват доступен
+  ipcMain.handle('sfx:binds', (_e, list) => {
+    sfxBinds = (Array.isArray(list) ? list : []).filter((b) => b && b.id && Number.isInteger(b.code))
+      .map((b) => ({ id: String(b.id), code: b.code, ctrl: !!b.ctrl, alt: !!b.alt, shift: !!b.shift }));
+    return { global: sfxBinds.length ? startHook() : false };
+  });
+  ipcMain.handle('sfx:capture', () => {
+    if (!startHook()) return null;
+    if (sfxCaptureResolve) sfxCaptureResolve(null);
+    return new Promise((resolve) => {
+      sfxCaptureResolve = resolve;
+      setTimeout(() => { if (sfxCaptureResolve === resolve) { sfxCaptureResolve = null; resolve(null); } }, 10000);
+    });
+  });
+  ipcMain.handle('sfx:captureCancel', () => { if (sfxCaptureResolve) { const r = sfxCaptureResolve; sfxCaptureResolve = null; r(null); } return true; });
 
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(), electron: process.versions.electron, chrome: process.versions.chrome,
