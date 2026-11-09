@@ -1,7 +1,7 @@
 // Звуки для всех (1.21): короткие звуки по кнопке или сочетанию клавиш — закадровый смех, «ба-дум-тсс» и т. п.
 // Подмешиваются в голосовую дорожку так же, как «Музыка для всех» (audio.js → Mic.setSfx), — их слышат все
 // в комнате, даже у кого «Сходка» старой версии. Клавиши работают и в свёрнутом окне (в игре) — через тот же
-// глобальный перехват, что и «рация» (main.js, uiohook). Встроенные звуки не файлы: они синтезируются кодом ниже.
+// глобальный перехват, что и «рация» (main.js, uiohook). Одновременно звучит один звук.
 import { log } from './log.js';
 
 const api = window.api;
@@ -9,7 +9,6 @@ const api = window.api;
 const SR = 48000;
 const MAX_BYTES = 8 * 1024 * 1024;
 const MAX_SEC = 30;          // длиннее — это уже музыка, для неё есть «Музыка для всех»
-const MAX_AT_ONCE = 4;       // больше разом — каша; самый старый звук уступает место
 const AUDIO_RE = /\.(mp3|m4a|aac|flac|ogg|oga|opus|wav|webm|weba)$/i;
 const MOD_CODES = new Set(['ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight']);
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -47,138 +46,37 @@ function keyLabel(e) {
 // сочетание, которое легко нажать случайно, пока пишешь в чат или играешь
 const risky = (b) => !b.ctrl && !b.alt && /^(Key|Digit|Space|Backquote|Minus|Equal|Bracket|Semicolon|Quote|Comma|Period|Slash|Backslash|Enter|Tab)/.test(b.code);
 
-// ===================== встроенные звуки (синтез) =====================
-function noiseBuf(c, sec) {
-  const b = c.createBuffer(1, Math.max(1, Math.ceil(sec * c.sampleRate)), c.sampleRate);
-  const d = b.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  return b;
-}
-// огибающая: удар (a → peak, затухание d) или нота (a → peak, держим hold, отпускаем за rel)
-function envelope(g, t, { a = 0.005, peak = 0.5, d = 0.3, hold = null, rel = 0.1 }) {
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(peak, t + a);
-  if (hold == null) { g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); return t + a + d; }
-  g.gain.setValueAtTime(peak, t + a + hold);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + a + hold + rel);
-  return t + a + hold + rel;
-}
-function tone(c, out, t, o) {
-  const { type = 'sine', f0, f1 = f0, glide = 0.15, lp = 0, vib = 0, vibRate = 5.5 } = o;
-  const osc = c.createOscillator(); osc.type = type;
-  osc.frequency.setValueAtTime(f0, t);
-  if (f1 !== f0) osc.frequency.exponentialRampToValueAtTime(f1, t + glide);
-  const g = c.createGain();
-  const end = envelope(g, t, o);
-  if (vib) {
-    const l = c.createOscillator(); l.frequency.value = vibRate;
-    const lg = c.createGain(); lg.gain.value = vib;
-    l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(end + 0.05);
-  }
-  let node = osc;
-  if (lp) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; osc.connect(f); node = f; }
-  node.connect(g); g.connect(out);
-  osc.start(t); osc.stop(end + 0.05);
-}
-function noise(c, out, t, { type = 'highpass', freq = 7000, q = 0.7, ...env }) {
-  const s = c.createBufferSource();
-  const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
-  const g = c.createGain();
-  const end = envelope(g, t, env);
-  s.buffer = noiseBuf(c, end - t + 0.1);
-  s.connect(f); f.connect(g); g.connect(out);
-  s.start(t); s.stop(end + 0.05);
-}
-const drum = (c, o, t, f, peak = 0.9) => tone(c, o, t, { f0: f, f1: f * 0.5, glide: 0.14, peak, a: 0.002, d: 0.28 });
-const snare = (c, o, t, peak) => {
-  noise(c, o, t, { type: 'bandpass', freq: 1900, q: 0.7, peak, a: 0.001, d: 0.07 });
-  tone(c, o, t, { type: 'triangle', f0: 210, f1: 170, glide: 0.05, peak: peak * 0.5, a: 0.001, d: 0.05 });
-};
-const cymbal = (c, o, t, d, peak) => {
-  noise(c, o, t, { type: 'highpass', freq: 6000, peak, a: 0.002, d });
-  noise(c, o, t, { type: 'bandpass', freq: 9500, q: 1.5, peak: peak * 0.5, a: 0.002, d: d * 0.6 });
-};
-// медь: пила через фильтр, который «раскрывается» в начале ноты
-function brass(c, o, t, dur, freqs, { vib = 0, peak = 0.35, bright = 2200 } = {}) {
-  const f = c.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 2;
-  f.frequency.setValueAtTime(300, t);
-  f.frequency.linearRampToValueAtTime(bright, t + 0.08);
-  f.frequency.linearRampToValueAtTime(bright * 0.6, t + Math.min(dur, 0.4));
-  const g = c.createGain();
-  const end = envelope(g, t, { a: 0.04, peak, hold: dur, rel: 0.15 });
-  f.connect(g); g.connect(o);
-  for (const fr of freqs) {
-    const osc = c.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = fr;
-    if (vib) {
-      const l = c.createOscillator(); l.frequency.value = 5;
-      const lg = c.createGain(); lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(vib, t + dur);
-      l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(end + 0.05);
-    }
-    osc.connect(f); osc.start(t); osc.stop(end + 0.05);
-  }
-}
-function horn(c, o, t, dur) {
-  const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3200; f.Q.value = 1;
-  const g = c.createGain();
-  const end = envelope(g, t, { a: 0.015, peak: 0.3, hold: dur, rel: 0.08 });
-  f.connect(g); g.connect(o);
-  for (const fr of [466, 470, 475, 235]) {
-    const osc = c.createOscillator(); osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(fr * 0.93, t); osc.frequency.exponentialRampToValueAtTime(fr, t + 0.05);
-    osc.connect(f); osc.start(t); osc.stop(end + 0.05);
-  }
-}
-const chirp = (c, o, t, f, peak) => { for (let p = 0; p < 3; p++) tone(c, o, t + p * 0.05, { f0: f, peak, a: 0.006, d: 0.035 }); };
-const bell = (c, o, t, f) => {
-  tone(c, o, t, { f0: f, peak: 0.5, a: 0.002, d: 1.2 });
-  tone(c, o, t, { f0: f * 2.76, peak: 0.12, a: 0.002, d: 0.3 });
-};
-
-// level — громкость пика после нормализации (сверчки и гудок тише, иначе режут уши)
+// ===================== встроенные звуки =====================
+// Файлы — renderer/sounds/*.mp3, с freesound.org под CC0 / CC BY (авторы — sounds/CREDITS.txt).
+// gain — выравнивание громкости (замер: громкое место ≈ −14 дБ, пик не выше 0,97); start — пропуск тишины в начале, с.
+// id прежних синтезированных звуков сохранены, чтобы назначенные клавиши не слетели.
 const BUILTIN = [
-  { id: 'b:rimshot', name: 'Ба-дум-тсс', len: 2.0, level: 0.85, gen(c, o) {
-    drum(c, o, 0, 200); snare(c, o, 0, 0.3);
-    drum(c, o, 0.2, 150, 1);
-    cymbal(c, o, 0.45, 1.4, 0.55);
-  } },
-  { id: 'b:trombone', name: 'Грустный тромбон', len: 3.4, level: 0.55, gen(c, o) {
-    [196, 185, 174.61].forEach((f, i) => brass(c, o, i * 0.48, 0.36, [f]));
-    brass(c, o, 1.44, 1.5, [164.81], { vib: 6 });
-  } },
-  { id: 'b:fanfare', name: 'Та-дам!', len: 2.0, level: 0.8, gen(c, o) {
-    brass(c, o, 0, 0.1, [392, 523.25], { bright: 3200, peak: 0.3 });
-    brass(c, o, 0.16, 1.3, [523.25, 659.25, 783.99, 1046.5], { bright: 3600, peak: 0.25 });
-  } },
-  { id: 'b:horn', name: 'Горн', len: 1.9, level: 0.7, gen(c, o) {
-    for (const [t, d] of [[0, 0.14], [0.2, 0.14], [0.4, 1.1]]) horn(c, o, t, d);
-  } },
-  { id: 'b:drumroll', name: 'Барабанная дробь', len: 4.0, level: 0.85, gen(c, o) {
-    const end = 1.9;
-    for (let t = 0; t < end; t += 0.042) { const k = t / end; snare(c, o, t, 0.12 + 0.5 * k * k); }
-    drum(c, o, end + 0.05, 110, 1); cymbal(c, o, end + 0.05, 1.9, 0.8);
-  } },
-  { id: 'b:crickets', name: 'Сверчки', len: 3.6, level: 0.35, gen(c, o) {
-    for (let k = 0; k < 5; k++) chirp(c, o, 0.1 + k * 0.68, 4400, 0.3);
-    for (let k = 0; k < 4; k++) chirp(c, o, 0.45 + k * 0.72, 4750, 0.16);
-  } },
-  { id: 'b:correct', name: 'Правильно', len: 1.6, level: 0.7, gen(c, o) { bell(c, o, 0, 1318.5); bell(c, o, 0.13, 1760); } },
-  { id: 'b:wrong', name: 'Неправильно', len: 1.1, level: 0.42, gen(c, o) {
-    for (const f of [98, 104]) tone(c, o, 0, { type: 'square', f0: f, a: 0.01, peak: 0.3, hold: 0.75, rel: 0.1, lp: 1800 });
-  } },
+  { id: 'b:laugh', name: 'Закадровый смех', file: 'laugh.mp3', gain: 2.15, start: 0.27 },
+  { id: 'b:laugh2', name: 'Смех зала', file: 'laugh2.mp3', gain: 0.82, start: 0.73 },
+  { id: 'b:applause', name: 'Аплодисменты', file: 'applause.mp3', gain: 1.5, start: 0.27 },
+  { id: 'b:rimshot', name: 'Ба-дум-тсс', file: 'rimshot.mp3', gain: 1.11 },
+  { id: 'b:trombone', name: 'Грустный тромбон', file: 'trombone.mp3', gain: 0.93, start: 0.22 },
+  { id: 'b:crickets', name: 'Сверчки', file: 'crickets.mp3', gain: 0.8 },
+  { id: 'b:horn', name: 'Горн', file: 'horn.mp3', gain: 1.32, start: 0.34 },
+  { id: 'b:drumroll', name: 'Барабанная дробь', file: 'drumroll.mp3', gain: 0.98 },
+  { id: 'b:fanfare', name: 'Та-дам!', file: 'tada.mp3', gain: 1.89 },
+  { id: 'b:dundun', name: 'Дун-дун-дуун', file: 'dundun.mp3', gain: 1.03 },
+  { id: 'b:boom', name: 'Бум', file: 'boom.mp3', gain: 2.64 },
+  { id: 'b:wow', name: 'Ваааау', file: 'wow.mp3', gain: 1.71, start: 0.05 },
+  { id: 'b:aww', name: 'Оооу', file: 'aww.mp3', gain: 0.67 },
+  { id: 'b:boo', name: 'Освистывание', file: 'boo.mp3', gain: 1.12, start: 0.12 },
+  { id: 'b:scratch', name: 'Скретч пластинки', file: 'scratch.mp3', gain: 0.64 },
+  { id: 'b:correct', name: 'Правильно', file: 'correct.mp3', gain: 4.45 },
+  { id: 'b:wrong', name: 'Неправильно', file: 'wrong.mp3', gain: 0.79 },
+  { id: 'b:cash', name: 'Касса', file: 'cash.mp3', gain: 0.98, start: 0.07 },
+  { id: 'b:boing', name: 'Боинг', file: 'boing.mp3', gain: 1.02 },
+  { id: 'b:slide', name: 'Падение', file: 'slide.mp3', gain: 1.11, start: 0.08 },
+  { id: 'b:bruh', name: 'Bruh', file: 'bruh.mp3', gain: 1.86, start: 0.08 },
+  { id: 'b:slap', name: 'Пощёчина', file: 'slap.mp3', gain: 1.23, start: 0.04 },
+  { id: 'b:fart', name: 'Пук', file: 'fart.mp3', gain: 1, start: 0.06 },
 ];
-
-export async function renderBuiltin(b) {
-  const c = new OfflineAudioContext(1, Math.ceil(b.len * SR), SR);
-  const bus = c.createGain(); bus.connect(c.destination);
-  b.gen(c, bus);
-  const buf = await c.startRendering();
-  const d = buf.getChannelData(0);
-  let pk = 0;
-  for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > pk) pk = v; }
-  if (pk > 0) { const k = (b.level || 0.85) / pk; for (let i = 0; i < d.length; i++) d[i] *= k; }
-  return buf;
-}
 export const BUILTIN_SOUNDS = BUILTIN;
+const soundUrl = (file) => new URL('../sounds/' + file, import.meta.url).href;
 
 // ===================== панель и проигрывание =====================
 export class Soundboard {
@@ -189,7 +87,7 @@ export class Soundboard {
     this.prefs = { sendVol: 50, localVol: 50, binds: {} };
     this.buffers = new Map();   // id → Promise<AudioBuffer>
     this.playing = new Map();   // id → { src, local }
-    this.deafened = false; this.globalKeys = false; this.capturing = null;
+    this.deafened = false; this.globalKeys = false; this.capturing = null; this.turn = 0;
     this.ctx = null; this.panel = null; this.ui = null;
     this.warned = {};
     document.addEventListener('keydown', (e) => this.onKey(e));
@@ -248,7 +146,11 @@ export class Soundboard {
     if (!this.buffers.has(id)) {
       const p = (async () => {
         const bi = BUILTIN.find((b) => b.id === id);
-        if (bi) return renderBuiltin(bi);
+        if (bi) {
+          const r = await fetch(soundUrl(bi.file));
+          if (!r.ok) throw new Error(`нет файла ${bi.file}`);
+          return this.ctx.decodeAudioData(await r.arrayBuffer());
+        }
         const bytes = await api.sfx.read(id);
         if (!bytes) throw new Error('файл звука не найден');
         const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
@@ -260,12 +162,15 @@ export class Soundboard {
     return this.buffers.get(id);
   }
 
-  // Повторное нажатие того же звука — стоп (длинный смех можно оборвать той же клавишей)
+  // Одновременно звучит только один звук: новый обрывает предыдущий.
+  // Повторное нажатие того же звука — стоп (длинный смех можно оборвать той же клавишей).
   async fire(id, { local = false } = {}) {
     const s = this.get(id);
     if (!s) return;
     this.ensure();
     if (this.playing.has(id)) { this.stopOne(id); return; }
+    const turn = ++this.turn; // пока звук грузился, могли нажать другой — тогда этот уже не нужен
+    this.stopAll();
     await this.ctx.resume().catch(() => {});
     await this.outputDevice();
     let buf;
@@ -274,15 +179,17 @@ export class Soundboard {
       this.toast(`Звук «${s.name}» не проигрывается`, { kind: 'error', hint: 'Файл повреждён или удалён. Удалите звук и добавьте заново.' });
       return;
     }
-    if (this.playing.has(id)) return; // пока грузился — нажали ещё раз
-    while (this.playing.size >= MAX_AT_ONCE) this.stopOne(this.playing.keys().next().value);
+    if (turn !== this.turn) return;
+    this.stopAll();
+    const bi = BUILTIN.find((b) => b.id === id);
     const src = this.ctx.createBufferSource(); src.buffer = buf;
-    src.connect(this.localGain);
-    if (!local) src.connect(this.sendGain);
+    const g = this.ctx.createGain(); g.gain.value = bi ? bi.gain : 1;
+    src.connect(g); g.connect(this.localGain);
+    if (!local) g.connect(this.sendGain);
     const rec = { src, local };
     this.playing.set(id, rec);
     src.onended = () => { if (this.playing.get(id) === rec) { this.playing.delete(id); this.renderPlaying(); } };
-    src.start();
+    src.start(0, bi && bi.start ? Math.min(bi.start, buf.duration - 0.05) : 0);
     this.renderPlaying();
     if (!local) { log.info('sfx', `Звук для всех: «${s.name}»`); this.warnUnheard(); }
   }
@@ -503,7 +410,7 @@ export class Soundboard {
     const anyBind = Object.keys(this.prefs.binds).some((id) => this.exists(id));
     u.keys.textContent = this.capturing ? 'Нажмите сочетание клавиш. Esc или Backspace — убрать клавишу'
       : !anyBind ? 'Назначьте звуку клавишу — его можно будет включать даже из игры'
-        : this.globalKeys ? 'Клавиши работают везде, даже в игре. Повторное нажатие — стоп'
+        : this.globalKeys ? 'Клавиши работают везде, даже в игре. Звучит один звук за раз, повторное нажатие — стоп'
           : 'Клавиши работают, только когда окно «Сходки» активно';
     u.grid.textContent = '';
     for (const s of this.all) {

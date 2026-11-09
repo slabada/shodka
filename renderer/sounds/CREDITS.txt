@@ -1,0 +1,31 @@
+Встроенные «Звуки для всех» (Сходка 1.21.2) — с freesound.org, под свободными лицензиями.
+Файлы — превью freesound (MP3 128 кбит/с), без изменений; громкость выравнивает программа.
+
+CC0 (общественное достояние) — указывать автора не обязательно, но указываем:
+  laugh.mp3     «Sitcom Laughter with Applause, Small Audience» — Kinoton       https://freesound.org/s/371562/
+  trombone.mp3  «wah wah sad trombone» — kirbydx                                  https://freesound.org/s/175409/
+  crickets.mp3  «cricket chirping (slow)» — _sinny_                               https://freesound.org/s/822935/
+  horn.mp3      «Industrial Air Horn» — mcpable                                   https://freesound.org/s/131930/
+  scratch.mp3   «Record Scratch #6» — musicvision31                               https://freesound.org/s/431779/
+  tada.mp3      «Tada Fanfare A» — plasterbrain                                   https://freesound.org/s/397355/
+  wrong.mp3     «Wrong Answer» — -Andreas                                         https://freesound.org/s/648462/
+  correct.mp3   «Quiz Gameshow Correct Ping 14» — craigscottuk                    https://freesound.org/s/644963/
+  cash.mp3      «Cash Register Purchase» — Zott820                                https://freesound.org/s/209578/
+  boing.mp3     «cartoon-sound-single-boing» — sdroliasnick                       https://freesound.org/s/731262/
+  bruh.mp3      «Bruh Sound Effect #1» — Autellaem                                https://freesound.org/s/534387/
+  fart.mp3      «Fart #005» — bassimat                                            https://freesound.org/s/840755/
+  slap.mp3      «punch 1 - loud slap» — steveuk87                                 https://freesound.org/s/490768/
+  boom.mp3      «Drama Boom 02» — modusmogulus                                    https://freesound.org/s/802074/
+
+CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/):
+  laugh2.mp3    «Laugh Track 5» — LittleRainySeasons                              https://freesound.org/s/395413/
+  applause.mp3  «polite_applause_12» — joedeshon                                  https://freesound.org/s/119032/
+  rimshot.mp3   «Drum_ComedyRimshot» — xtrgamr                                    https://freesound.org/s/432972/
+  boo.mp3       «boo 01» — tim.kahn                                               https://freesound.org/s/336997/
+  wow.mp3       «Crowd Wow Surprise People» — dersuperanton                       https://freesound.org/s/437645/
+  aww.mp3       «awww 01» — tim.kahn                                              https://freesound.org/s/336998/
+  dundun.mp3    «Dun dun dun» — Simon_Lacelle                                     https://freesound.org/s/45654/
+  slide.mp3     «Slide Whistle, Descending, B (H1)» — InspectorJ                  https://freesound.org/s/410804/
+
+CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/):
+  drumroll.mp3  «DrumRoll» — HolyGhostParty                                       https://freesound.org/s/71133/
