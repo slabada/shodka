@@ -72,8 +72,11 @@
     "publish": [
       {
         "provider": "github",
+        "owner": "slabada",
+        "repo": "shodka",
         "releaseType": "release"
       }
     ]
-  }
+  },
+  "repository": "https://github.com/slabada/shodka"
 }
