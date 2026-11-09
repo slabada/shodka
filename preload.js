@@ -10,7 +10,7 @@ const on = (channel) => (cb) => {
 
 contextBridge.exposeInMainWorld('api', {
   // только для автотестов: подставной «звук компьютера» в трансляции на Linux
-  testFlags: { fakeScreenAudio: process.env.SKHODKA_FAKE_SCREEN_AUDIO || '', fakeProcAudio: !!process.env.SKHODKA_FAKE_PROCAUDIO },
+  testFlags: { fakeScreenAudio: process.env.SKHODKA_FAKE_SCREEN_AUDIO || '', fakeProcAudio: !!process.env.SKHODKA_FAKE_PROCAUDIO, expose: !!process.env.SKHODKA_EXPOSE },
   hostStart: (port) => ipcRenderer.invoke('host:start', { port }),
   hostStop: () => ipcRenderer.invoke('host:stop'),
   hostStatus: () => ipcRenderer.invoke('host:status'),

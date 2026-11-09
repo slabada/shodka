@@ -2,14 +2,18 @@
 // Подмешиваются в голосовую дорожку так же, как «Музыка для всех» (audio.js → Mic.setSfx), — их слышат все
 // в комнате, даже у кого «Сходка» старой версии. Клавиши работают и в свёрнутом окне (в игре) — через тот же
 // глобальный перехват, что и «рация» (main.js, uiohook). Одновременно звучит один звук.
+// 1.21.4: видео тоже подходит — берётся только звук; кусок выбирается в редакторе (sfxedit.js).
 import { log } from './log.js';
+import { openSfxEditor, encodeWav } from './sfxedit.js';
 
 const api = window.api;
 
 const SR = 48000;
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = 8 * 1024 * 1024;     // сохраняемый звук (короткий файл как есть или выбранный кусок в WAV)
+const MAX_IN_BYTES = 600 * 1024 * 1024; // исходник, из которого вырезаем кусок (видео бывают большими)
 const MAX_SEC = 30;          // длиннее — это уже музыка, для неё есть «Музыка для всех»
-const AUDIO_RE = /\.(mp3|m4a|aac|flac|ogg|oga|opus|wav|webm|weba)$/i;
+const AUDIO_RE = /\.(mp3|m4a|aac|flac|ogg|oga|opus|wav|weba)$/i;
+const VIDEO_RE = /\.(mp4|m4v|mov|mkv|webm)$/i;
 const MOD_CODES = new Set(['ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight']);
 const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -69,7 +73,8 @@ export class Soundboard {
   constructor({ mic, output, voice, toast }) {
     this.mic = mic; this.output = output; this.voice = voice; this.toast = toast || (() => {});
     this.user = [];
-    this.prefs = { sendVol: 50, localVol: 50, binds: {}, hidden: [] }; // hidden — убранные стандартные звуки
+    // hidden — убранные стандартные звуки; trims — выбранный кусок звука { start, end } (с)
+    this.prefs = { sendVol: 50, localVol: 50, binds: {}, hidden: [], trims: {} };
     this.buffers = new Map();   // id → Promise<AudioBuffer>
     this.playing = new Map();   // id → { src, local }
     this.deafened = false; this.globalKeys = false; this.capturing = null; this.turn = 0;
@@ -87,6 +92,7 @@ export class Soundboard {
       if (Number.isFinite(p.localVol)) this.prefs.localVol = p.localVol;
       if (p.binds && typeof p.binds === 'object') this.prefs.binds = p.binds;
       if (Array.isArray(p.hidden)) this.prefs.hidden = p.hidden.filter((id) => typeof id === 'string');
+      if (p.trims && typeof p.trims === 'object') this.prefs.trims = p.trims;
     } catch (e) { log.warn('sfx', `Не загрузился список звуков: ${cleanErr(e)}`); }
     api.sfx.onFire((id) => this.fire(id));
     await this.syncBinds();
@@ -178,7 +184,8 @@ export class Soundboard {
     const rec = { src, local };
     this.playing.set(id, rec);
     src.onended = () => { if (this.playing.get(id) === rec) { this.playing.delete(id); this.renderPlaying(); } };
-    src.start(0, bi && bi.start ? Math.min(bi.start, buf.duration - 0.05) : 0);
+    const { start, end } = this.range(id, buf);
+    src.start(0, start, end - start);
     this.renderPlaying();
     if (!local) { log.info('sfx', `Звук для всех: «${s.name}»`); this.warnUnheard(); }
   }
@@ -267,33 +274,97 @@ export class Soundboard {
 
   // ---------- свои звуки ----------
   pickFiles() {
-    const inp = h('input', { type: 'file', multiple: true, accept: 'audio/*,.mp3,.wav,.ogg,.oga,.opus,.m4a,.aac,.flac,.webm' });
+    const inp = h('input', { type: 'file', multiple: true, accept: 'audio/*,video/*,.mp3,.wav,.ogg,.oga,.opus,.m4a,.aac,.flac,.webm,.mp4,.m4v,.mov,.mkv' });
     inp.onchange = () => this.addFiles(inp.files);
     inp.click();
   }
 
+  // Какой кусок звука играет: выбранный в редакторе, иначе — от «start» стандартного звука до конца
+  range(id, buf) {
+    const t = this.prefs.trims[id];
+    const bi = BUILTIN.find((b) => b.id === id);
+    let start = t ? t.start : (bi && bi.start) || 0;
+    let end = t && t.end ? t.end : buf.duration;
+    start = Math.max(0, Math.min(start, buf.duration - 0.05));
+    end = Math.max(start + 0.05, Math.min(end, buf.duration));
+    return { start, end };
+  }
+
+  // Прослушать кусок у себя (для редактора); возвращает «стоп»
+  playLocal(buf, start, end, onEnd) {
+    this.ensure();
+    this.stopAll();
+    this.ctx.resume().catch(() => {});
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
+    src.connect(this.localGain);
+    src.onended = () => onEnd && onEnd();
+    this.outputDevice().finally(() => src.start(0, start, end - start));
+    return () => { src.onended = null; try { src.stop(); } catch (_) { /* ещё не начался */ } };
+  }
+
+  editor(buf, opts) {
+    return openSfxEditor({ buffer: buf, maxLen: MAX_SEC, play: (a, b, done) => this.playLocal(buf, a, b, done), ...opts });
+  }
+
+  // Короткий звуковой файл добавляется как есть. Видео и длинная запись — через редактор:
+  // выбираете кусок до 30 с, сохраняется только он (WAV), исходник не копируется.
   async addFiles(list) {
-    const files = [...list].filter((f) => f && AUDIO_RE.test(f.name));
-    if (!files.length) { this.toast('Здесь нет звуков', { hint: `Подходят MP3, WAV, OGG/Opus, M4A, FLAC — до ${MAX_SEC} секунд` }); return; }
+    const files = [...list].filter((f) => f && (AUDIO_RE.test(f.name) || VIDEO_RE.test(f.name) || /^(audio|video)\//.test(f.type)));
+    if (!files.length) { this.toast('Здесь нет звуков', { hint: 'Подходят MP3, WAV, OGG/Opus, M4A, FLAC и видео MP4, MOV, MKV, WebM — из видео берётся звук' }); return; }
     this.ensure();
     let added = 0;
     for (const f of files) {
+      const video = VIDEO_RE.test(f.name) || /^video\//.test(f.type);
       try {
-        if (f.size > MAX_BYTES) throw new Error('файл больше 8 МБ');
+        if (f.size > MAX_IN_BYTES) throw new Error('файл больше 600 МБ — вырежьте кусок поменьше');
+        let wait = null;
+        if (video || f.size > 20 * 1024 * 1024) wait = setTimeout(() => this.toast(video ? `Достаю звук из «${f.name}»…` : `Открываю «${f.name}»…`, { timeout: 4000 }), 400);
         const ab = await f.arrayBuffer();
         let buf;
-        try { buf = await this.ctx.decodeAudioData(ab.slice(0)); } catch (_) { throw new Error('формат не поддерживается или файл повреждён'); }
-        if (buf.duration > MAX_SEC) throw new Error(`длиннее ${MAX_SEC} секунд (${Math.round(buf.duration)} с). Для длинного есть «Музыка для всех»`);
-        const name = f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-        const s = await api.sfx.add(name, f.name.split('.').pop().toLowerCase(), new Uint8Array(ab));
+        try { buf = await this.ctx.decodeAudioData(ab.slice(0)); } catch (_) {
+          throw new Error(video ? 'в видео нет звуковой дорожки или такой формат не поддерживается' : 'формат не поддерживается или файл повреждён');
+        } finally { clearTimeout(wait); }
+        let name = f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+        let bytes = new Uint8Array(ab); let ext = f.name.split('.').pop().toLowerCase();
+        if (video || buf.duration > MAX_SEC || f.size > MAX_BYTES) {
+          const r = await this.editor(buf, { name, title: video ? 'Звук из видео: выберите кусок' : 'Выберите кусок звука', start: 0, end: Math.min(buf.duration, video ? 10 : MAX_SEC) });
+          if (!r) continue; // отмена
+          name = r.name;
+          bytes = encodeWav(buf, r.start, r.end); ext = 'wav';
+          buf = null; // сохранённый кусок прочитается заново при первом нажатии
+        }
+        const s = await api.sfx.add(name, ext, bytes);
         this.user.push(s);
-        this.buffers.set(s.id, Promise.resolve(buf));
+        if (buf) this.buffers.set(s.id, Promise.resolve(buf));
         added++;
       } catch (e) {
         this.toast(`«${f.name}» не добавлен`, { kind: 'error', hint: cleanErr(e) });
       }
     }
-    if (added) this.toast(added === 1 ? 'Звук добавлен' : `Добавлено звуков: ${added}`, { kind: 'ok', hint: 'Нажмите «+ клавиша», чтобы включать его сочетанием клавиш' });
+    if (added) this.toast(added === 1 ? 'Звук добавлен' : `Добавлено звуков: ${added}`, { kind: 'ok', hint: 'Ножницы на плитке — выбрать кусок. «+ клавиша» — включать сочетанием клавиш' });
+    this.render();
+  }
+
+  // Ножницы на плитке: какой кусок звука играть (исходник не меняется — можно передумать)
+  async edit(id) {
+    const s = this.get(id);
+    if (!s) return;
+    this.ensure();
+    let buf;
+    try { buf = await this.buffer(id); } catch (e) { this.toast(`Звук «${s.name}» не открывается`, { kind: 'error', hint: cleanErr(e) }); return; }
+    const cur = this.range(id, buf);
+    const r = await this.editor(buf, { name: s.name, canRename: !s.builtin, title: s.builtin ? `«${s.name}»: какой кусок играть` : 'Какой кусок играть', start: cur.start, end: cur.end });
+    if (!r) return;
+    const bi = BUILTIN.find((b) => b.id === id);
+    const whole = r.start <= ((bi && bi.start) || 0) + 0.01 && r.end >= buf.duration - 0.01;
+    if (whole) delete this.prefs.trims[id]; else this.prefs.trims[id] = { start: r.start, end: r.end };
+    if (!s.builtin && r.name && r.name !== s.name) {
+      await api.sfx.rename(id, r.name).catch(() => {});
+      s.name = r.name;
+      const u = this.user.find((x) => x.id === id); if (u) u.name = r.name;
+    }
+    this.savePrefs();
+    log.info('sfx', `Кусок звука «${s.name}»: ${r.start.toFixed(2)}–${r.end.toFixed(2)} с`);
     this.render();
   }
 
@@ -314,6 +385,7 @@ export class Soundboard {
       this.buffers.delete(id);
     }
     delete this.prefs.binds[id];
+    if (!s.builtin) delete this.prefs.trims[id]; // у стандартного кусок остаётся — вдруг вернут
     this.savePrefs();
     await this.syncBinds();
     this.render();
@@ -347,7 +419,7 @@ export class Soundboard {
       h('label', { class: 'mp-vol' }, h('span', { text: 'У себя' }), u.local, u.localPct),
       h('div', { class: 'qm-sep' }),
       h('div', { class: 'mp-add' },
-        h('button', { class: 'mp-link', 'data-tip': `Свой звук с компьютера: MP3, WAV, OGG — до ${MAX_SEC} секунд`, onclick: () => this.pickFiles() }, ico('plus'), 'Добавить звук'),
+        h('button', { class: 'mp-link', 'data-tip': `Свой звук или видео с компьютера — из видео берётся звук, кусок до ${MAX_SEC} с`, onclick: () => this.pickFiles() }, ico('plus'), 'Добавить звук'),
         u.stop = h('button', { class: 'mp-link', 'data-tip': 'Остановить все звуки', onclick: () => this.stopAll() }, ico('x'), 'Стоп')),
     );
     p.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); e.stopPropagation(); p.classList.add('drop'); } });
@@ -426,6 +498,7 @@ export class Soundboard {
         h('div', { class: 'sfx-tools' },
           h('button', { class: 'sfx-key' + (b ? ' set' : '') + (waiting ? ' wait' : ''), 'data-tip': b ? 'Сменить клавишу (Esc — убрать)' : 'Назначить клавишу или сочетание', onclick: () => this.bind(s.id) },
             waiting ? 'Нажмите…' : b ? b.label : '+ клавиша'),
+          h('button', { class: 'sfx-mini' + (this.prefs.trims[s.id] ? ' on' : ''), 'data-tip': 'Выбрать, какой кусок играть', onclick: () => this.edit(s.id) }, ico('cut')),
           h('button', { class: 'sfx-mini', 'data-tip': 'Послушать самому — друзья не услышат', onclick: () => this.fire(s.id, { local: true }) }, ico('head')),
           h('button', { class: 'sfx-mini', 'data-tip': s.builtin ? 'Убрать стандартный звук (можно вернуть)' : 'Удалить свой звук', onclick: () => this.remove(s.id) }, ico('trash'))));
     };
@@ -437,7 +510,7 @@ export class Soundboard {
       std.length ? h('div', { class: 'sfx-grid' }, std.map(tile)) : h('div', { class: 'sfx-empty', text: 'Все стандартные звуки убраны' }),
       h('div', { class: 'sfx-sec' }, h('span', { text: 'Мои звуки' })),
       this.user.length ? h('div', { class: 'sfx-grid' }, this.user.map(tile))
-        : h('button', { class: 'sfx-empty', onclick: () => this.pickFiles() }, 'Добавьте свой звук — кнопкой ниже или перетащите файл сюда'),
+        : h('button', { class: 'sfx-empty', onclick: () => this.pickFiles() }, 'Добавьте свой звук или видео — кнопкой ниже или перетащите файл сюда'),
     );
     this.renderVol();
     this.renderPlaying();

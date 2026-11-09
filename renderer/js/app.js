@@ -3149,7 +3149,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // для автотестов: доступ к состоянию из тестового скрипта (только при запуске с тестовым флагом)
-if (api.testFlags && (api.testFlags.fakeScreenAudio || api.testFlags.expose)) window.__skh = { S, output, mic, music, p2p, settings, set };
+if (api.testFlags && (api.testFlags.fakeScreenAudio || api.testFlags.expose)) window.__skh = { S, output, mic, music, sfx, p2p, settings, set };
 
 // ===================== старт =====================
 output.setVolume(settings.outputVolume);
