@@ -1260,7 +1260,14 @@ body.th-p3 .msg .msg-acts { top: -18px; }
 .music-panel .mp-ico { width: 18px; height: 18px; flex: none; }
 /* Звуки для всех (1.21) — та же панель, что у музыки, внутри сетка плиток */
 .sfx-panel { width: 380px; }
-.sfx-panel .sfx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; overflow-y: auto; max-height: min(46vh, 420px); padding: 2px; }
+.sfx-panel .sfx-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: min(52vh, 460px); padding: 2px; }
+.sfx-panel .sfx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sfx-panel .sfx-sec { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 0 6px; font-size: 12px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
+.sfx-panel .sfx-restore { border: 0; background: transparent; color: var(--acc1); font: inherit; font-size: 12px; text-transform: none; letter-spacing: 0; padding: 2px 6px; border-radius: 7px; cursor: pointer; }
+.sfx-panel .sfx-restore:hover { background: var(--ink3); }
+.sfx-panel .sfx-empty { border: 1px dashed var(--line); background: transparent; color: var(--text3); font: inherit; font-size: 12.5px; line-height: 1.4; text-align: center; padding: 14px 10px; border-radius: 12px; }
+.sfx-panel button.sfx-empty { cursor: pointer; }
+.sfx-panel button.sfx-empty:hover { color: var(--text2); border-color: var(--ink4); }
 .sfx-panel .sfx-tile { background: var(--ink0); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-width: 0; transition: border-color .15s, background .15s; }
 .sfx-panel .sfx-tile.playing { border-color: var(--acc1); background: var(--lamp-soft); }
 .sfx-panel .sfx-play { border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; font-weight: 500; text-align: left; padding: 9px 10px 4px; cursor: pointer; border-radius: 12px 12px 0 0; min-width: 0; }

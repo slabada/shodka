@@ -51,48 +51,14 @@ const risky = (b) => !b.ctrl && !b.alt && /^(Key|Digit|Space|Backquote|Minus|Equ
 // gain — выравнивание громкости (замер: громкое место ≈ −14 дБ, пик не выше 0,97); start — пропуск тишины в начале, с.
 // id прежних синтезированных звуков сохранены, чтобы назначенные клавиши не слетели.
 const BUILTIN = [
-  { id: 'b:laugh', name: 'Закадровый смех', file: 'laugh.mp3', gain: 2.15, start: 0.27 },
   { id: 'b:laugh2', name: 'Смех зала', file: 'laugh2.mp3', gain: 0.82, start: 0.73 },
-  { id: 'b:highlaugh', name: 'Писклявый смех', file: 'highlaugh.mp3', gain: 1.0 },
-  { id: 'b:evil', name: 'Злодейский смех', file: 'evil.mp3', gain: 1.0, start: 0.14 },
-  { id: 'b:goofy', name: 'Дурацкий смех', file: 'goofy.mp3', gain: 0.53, start: 0.31 },
-  { id: 'b:baby', name: 'Детский смех', file: 'baby.mp3', gain: 1.21, start: 0.12 },
   { id: 'b:applause', name: 'Аплодисменты', file: 'applause.mp3', gain: 1.5, start: 0.27 },
   { id: 'b:rimshot', name: 'Ба-дум-тсс', file: 'rimshot.mp3', gain: 1.11 },
   { id: 'b:trombone', name: 'Грустный тромбон', file: 'trombone.mp3', gain: 0.93, start: 0.22 },
-  { id: 'b:crickets', name: 'Сверчки', file: 'crickets.mp3', gain: 0.8 },
-  { id: 'b:horn', name: 'Горн', file: 'horn.mp3', gain: 1.32, start: 0.34 },
-  { id: 'b:bonk', name: 'Бонк', file: 'bonk.mp3', gain: 0.97, start: 0.2 },
-  { id: 'b:oof', name: 'Уф', file: 'oof.mp3', gain: 1.12 },
-  { id: 'b:huh', name: 'Хм?', file: 'huh.mp3', gain: 1.0 },
-  { id: 'b:goose', name: 'Гусь', file: 'goose.mp3', gain: 1.88 },
-  { id: 'b:quack', name: 'Кря-кря', file: 'quack.mp3', gain: 1.14, start: 0.39 },
-  { id: 'b:nope', name: 'Неа', file: 'nope.mp3', gain: 1.13, start: 0.43 },
-  { id: 'b:yeet', name: 'Йиииит', file: 'yeet.mp3', gain: 0.58, start: 0.27 },
-  { id: 'b:uhoh', name: 'Ой-ой', file: 'uhoh.mp3', gain: 0.68, start: 0.1 },
-  { id: 'b:nani', name: 'Нани?!', file: 'nani.mp3', gain: 1.25, start: 0.2 },
-  { id: 'b:animewow', name: 'Аниме «вау»', file: 'animewow.mp3', gain: 4.94, start: 0.44 },
-  { id: 'b:wilhelm', name: 'Крик Вильгельма', file: 'wilhelm.mp3', gain: 0.73 },
-  { id: 'b:censor', name: 'Бип (цензура)', file: 'censor.mp3', gain: 0.25 },
-  { id: 'b:pipe', name: 'Упала труба', file: 'pipe.mp3', gain: 1.27, start: 0.89 },
-  { id: 'b:slowmo', name: 'Замедление', file: 'slowmo.mp3', gain: 0.85 },
-  { id: 'b:boom', name: 'Бум', file: 'boom.mp3', gain: 2.64 },
   { id: 'b:dundun', name: 'Дун-дун-дуун', file: 'dundun.mp3', gain: 1.03 },
   { id: 'b:drumroll', name: 'Барабанная дробь', file: 'drumroll.mp3', gain: 0.98 },
-  { id: 'b:fanfare', name: 'Та-дам!', file: 'tada.mp3', gain: 1.89 },
   { id: 'b:wow', name: 'Ваааау', file: 'wow.mp3', gain: 1.71, start: 0.05 },
-  { id: 'b:aww', name: 'Оооу', file: 'aww.mp3', gain: 0.67 },
   { id: 'b:boo', name: 'Освистывание', file: 'boo.mp3', gain: 1.12, start: 0.12 },
-  { id: 'b:scratch', name: 'Скретч пластинки', file: 'scratch.mp3', gain: 0.64 },
-  { id: 'b:correct', name: 'Правильно', file: 'correct.mp3', gain: 4.45 },
-  { id: 'b:wrong', name: 'Неправильно', file: 'wrong.mp3', gain: 0.79 },
-  { id: 'b:cash', name: 'Касса', file: 'cash.mp3', gain: 0.98, start: 0.07 },
-  { id: 'b:boing', name: 'Боинг', file: 'boing.mp3', gain: 1.02 },
-  { id: 'b:slide', name: 'Падение', file: 'slide.mp3', gain: 1.11, start: 0.08 },
-  { id: 'b:bruh', name: 'Bruh', file: 'bruh.mp3', gain: 1.86, start: 0.08 },
-  { id: 'b:slap', name: 'Пощёчина', file: 'slap.mp3', gain: 1.23, start: 0.04 },
-  { id: 'b:fart', name: 'Пук', file: 'fart.mp3', gain: 1.0, start: 0.06 },
-  { id: 'b:fartecho', name: 'Пук с эхом', file: 'fartecho.mp3', gain: 1.22, start: 0.03 },
 ];
 export const BUILTIN_SOUNDS = BUILTIN;
 const soundUrl = (file) => new URL('../sounds/' + file, import.meta.url).href;
@@ -103,7 +69,7 @@ export class Soundboard {
   constructor({ mic, output, voice, toast }) {
     this.mic = mic; this.output = output; this.voice = voice; this.toast = toast || (() => {});
     this.user = [];
-    this.prefs = { sendVol: 50, localVol: 50, binds: {} };
+    this.prefs = { sendVol: 50, localVol: 50, binds: {}, hidden: [] }; // hidden — убранные стандартные звуки
     this.buffers = new Map();   // id → Promise<AudioBuffer>
     this.playing = new Map();   // id → { src, local }
     this.deafened = false; this.globalKeys = false; this.capturing = null; this.turn = 0;
@@ -120,13 +86,17 @@ export class Soundboard {
       if (Number.isFinite(p.sendVol)) this.prefs.sendVol = p.sendVol;
       if (Number.isFinite(p.localVol)) this.prefs.localVol = p.localVol;
       if (p.binds && typeof p.binds === 'object') this.prefs.binds = p.binds;
+      if (Array.isArray(p.hidden)) this.prefs.hidden = p.hidden.filter((id) => typeof id === 'string');
     } catch (e) { log.warn('sfx', `Не загрузился список звуков: ${cleanErr(e)}`); }
     api.sfx.onFire((id) => this.fire(id));
     await this.syncBinds();
     this.render();
   }
 
-  get all() { return [...BUILTIN.map((b) => ({ id: b.id, name: b.name, builtin: true })), ...this.user]; }
+  // стандартные (без убранных) и свои — отдельными списками
+  get standard() { return BUILTIN.filter((b) => !this.prefs.hidden.includes(b.id)).map((b) => ({ id: b.id, name: b.name, builtin: true })); }
+  get hiddenCount() { return BUILTIN.filter((b) => this.prefs.hidden.includes(b.id)).length; }
+  get all() { return [...this.standard, ...this.user]; }
   get(id) { return this.all.find((s) => s.id === id) || null; }
   get live() { return [...this.playing.values()].some((r) => !r.local); }
 
@@ -327,15 +297,32 @@ export class Soundboard {
     this.render();
   }
 
+  // Свой звук удаляется с диска; стандартный только прячется — его можно вернуть
   async remove(id) {
     const s = this.get(id);
-    if (!s || s.builtin) return;
-    if (!confirm(`Удалить звук «${s.name}»?`)) return;
-    this.stopOne(id);
-    await api.sfx.remove(id).catch(() => {});
-    this.user = this.user.filter((x) => x.id !== id);
-    this.buffers.delete(id);
-    if (this.prefs.binds[id]) { delete this.prefs.binds[id]; this.savePrefs(); await this.syncBinds(); }
+    if (!s) return;
+    if (s.builtin) {
+      if (!confirm(`Убрать стандартный звук «${s.name}»?
+Вернуть его можно кнопкой «Вернуть стандартные».`)) return;
+      this.stopOne(id);
+      this.prefs.hidden = [...new Set([...this.prefs.hidden, id])];
+    } else {
+      if (!confirm(`Удалить звук «${s.name}»?`)) return;
+      this.stopOne(id);
+      await api.sfx.remove(id).catch(() => {});
+      this.user = this.user.filter((x) => x.id !== id);
+      this.buffers.delete(id);
+    }
+    delete this.prefs.binds[id];
+    this.savePrefs();
+    await this.syncBinds();
+    this.render();
+  }
+
+  async restoreStandard() {
+    this.prefs.hidden = [];
+    this.savePrefs();
+    await this.syncBinds();
     this.render();
   }
 
@@ -346,7 +333,7 @@ export class Soundboard {
     const u = this.ui = {};
     u.status = h('small', { class: 'mp-status' });
     u.keys = h('small', { class: 'sfx-keys' });
-    u.grid = h('div', { class: 'sfx-grid' });
+    u.list = h('div', { class: 'sfx-list' });
     u.sendPct = h('small'); u.localPct = h('small');
     u.send = range(this.prefs.sendVol, () => { this.prefs.sendVol = +u.send.value; this.applyVolumes(); this.savePrefs(); this.renderVol(); });
     u.local = range(this.prefs.localVol, () => { this.prefs.localVol = +u.local.value; this.applyVolumes(); this.savePrefs(); this.renderVol(); });
@@ -354,7 +341,7 @@ export class Soundboard {
       h('div', { class: 'mp-head' }, ico('sfx'), h('b', { text: 'Звуки для всех' }),
         h('button', { class: 'mp-btn mp-close', 'data-tip': 'Свернуть', onclick: () => this.hide() }, ico('x'))),
       u.status,
-      u.grid,
+      u.list,
       u.keys,
       h('label', { class: 'mp-vol' }, h('span', { text: 'Для всех' }), u.send, u.sendPct),
       h('label', { class: 'mp-vol' }, h('span', { text: 'У себя' }), u.local, u.localPct),
@@ -416,7 +403,7 @@ export class Soundboard {
 
   renderPlaying() {
     if (this.ui) {
-      for (const t of this.ui.grid.children) t.classList.toggle('playing', this.playing.has(t.dataset.id));
+      for (const t of this.ui.list.querySelectorAll('.sfx-tile')) t.classList.toggle('playing', this.playing.has(t.dataset.id));
       this.ui.stop.hidden = !this.playing.size;
     }
     if (this.onchange) this.onchange();
@@ -431,18 +418,27 @@ export class Soundboard {
       : !anyBind ? 'Назначьте звуку клавишу — его можно будет включать даже из игры'
         : this.globalKeys ? 'Клавиши работают везде, даже в игре. Звучит один звук за раз, повторное нажатие — стоп'
           : 'Клавиши работают, только когда окно «Сходки» активно';
-    u.grid.textContent = '';
-    for (const s of this.all) {
+    const tile = (s) => {
       const b = this.prefs.binds[s.id];
       const waiting = this.capturing === s.id;
-      u.grid.append(h('div', { class: 'sfx-tile' + (this.playing.has(s.id) ? ' playing' : ''), 'data-id': s.id },
+      return h('div', { class: 'sfx-tile' + (this.playing.has(s.id) ? ' playing' : ''), 'data-id': s.id },
         h('button', { class: 'sfx-play', title: s.name, onclick: () => this.fire(s.id) }, h('span', { class: 'sfx-name', text: s.name })),
         h('div', { class: 'sfx-tools' },
           h('button', { class: 'sfx-key' + (b ? ' set' : '') + (waiting ? ' wait' : ''), 'data-tip': b ? 'Сменить клавишу (Esc — убрать)' : 'Назначить клавишу или сочетание', onclick: () => this.bind(s.id) },
             waiting ? 'Нажмите…' : b ? b.label : '+ клавиша'),
           h('button', { class: 'sfx-mini', 'data-tip': 'Послушать самому — друзья не услышат', onclick: () => this.fire(s.id, { local: true }) }, ico('head')),
-          s.builtin ? null : h('button', { class: 'sfx-mini', 'data-tip': 'Удалить звук', onclick: () => this.remove(s.id) }, ico('trash')))));
-    }
+          h('button', { class: 'sfx-mini', 'data-tip': s.builtin ? 'Убрать стандартный звук (можно вернуть)' : 'Удалить свой звук', onclick: () => this.remove(s.id) }, ico('trash'))));
+    };
+    const std = this.standard; const hid = this.hiddenCount;
+    u.list.textContent = '';
+    u.list.append(
+      h('div', { class: 'sfx-sec' }, h('span', { text: 'Стандартные' }),
+        hid ? h('button', { class: 'sfx-restore', 'data-tip': 'Показать убранные стандартные звуки', onclick: () => this.restoreStandard() }, `Вернуть стандартные (${hid})`) : null),
+      std.length ? h('div', { class: 'sfx-grid' }, std.map(tile)) : h('div', { class: 'sfx-empty', text: 'Все стандартные звуки убраны' }),
+      h('div', { class: 'sfx-sec' }, h('span', { text: 'Мои звуки' })),
+      this.user.length ? h('div', { class: 'sfx-grid' }, this.user.map(tile))
+        : h('button', { class: 'sfx-empty', onclick: () => this.pickFiles() }, 'Добавьте свой звук — кнопкой ниже или перетащите файл сюда'),
+    );
     this.renderVol();
     this.renderPlaying();
     if (this.open) this.place();
