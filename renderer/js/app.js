@@ -2775,6 +2775,46 @@ function updateThresholdUi() {
 }
 document.querySelectorAll('[data-strength]').forEach((b) => { b.onclick = () => set({ noiseStrength: b.dataset.strength }); });
 
+// ===================== обновления (1.20.5, GitHub Releases) =====================
+let updState = { status: 'idle' };
+let updToastFor = '';
+function paintUpdate() {
+  const s = updState;
+  const mb = (n) => (n / 1048576).toFixed(1).replace('.', ',');
+  const text = {
+    idle: 'Обновления проверяются сами при запуске и раз в 4 часа',
+    checking: 'Проверяю, есть ли новая версия…',
+    none: `У вас последняя версия — ${s.current || ''}`,
+    downloading: `Скачиваю версию ${s.version || ''}${s.total ? ` — ${s.percent || 0}% (${mb(s.transferred || 0)} из ${mb(s.total)} МБ)` : '…'}`,
+    ready: `Версия ${s.version} скачана. Поставится при перезапуске или при выходе из «Сходки»`,
+    error: `Не удалось проверить обновления: ${s.error || 'ошибка'}`,
+    unsupported: s.reason || 'Обновления недоступны',
+  }[s.status] || '';
+  $('upd-text').textContent = text;
+  $('upd-check').hidden = s.status === 'ready' || s.status === 'unsupported';
+  $('upd-check').disabled = s.status === 'checking' || s.status === 'downloading';
+  $('upd-install').hidden = s.status !== 'ready';
+  $('upd-bar').hidden = s.status !== 'downloading';
+  $('upd-fill').style.width = (s.percent || 0) + '%';
+}
+function installUpdate() {
+  if (S.inVoice && !confirm(`Перезапустить «Сходку» для обновления до ${updState.version}? Звонок прервётся на несколько секунд.`)) return;
+  api.update.install();
+}
+function onUpdate(s) {
+  updState = s || updState;
+  paintUpdate();
+  if (updState.status === 'ready' && updToastFor !== updState.version) {
+    updToastFor = updState.version;
+    log.info('update', `Скачана новая версия ${updState.version}`);
+    toast(`Доступна новая версия ${updState.version}`, { kind: 'ok', hint: 'Нажмите, чтобы перезапустить и обновить. Или она поставится сама при выходе.', timeout: 20000, onclick: installUpdate });
+  }
+}
+$('upd-check').onclick = () => api.update.check().then(onUpdate);
+$('upd-install').onclick = installUpdate;
+api.update.onState(onUpdate);
+api.update.state().then(onUpdate);
+
 async function openSettings(tab) {
   if (tab) { const b = document.querySelector(`[data-stab="${tab}"]`); if (b) b.click(); }
   syncSettingsUi();

@@ -64,6 +64,7 @@ function logFiles() {
 const procAudio = setupProcAudio({ ipcMain, app, log });
 require('./main/musicapps')({ ipcMain, app, log }); // «Музыка для всех» → окна программ, включая свёрнутые
 const videoCap = setupVideoCap({ ipcMain, app, log, screenRect: (id) => screenRectOf(id) });
+require('./main/updater')({ ipcMain, app, log, getWin: () => win }); // 1.20.5: обновления из GitHub Releases
 
 let win = null;
 let server = null;

@@ -566,6 +566,15 @@
 
         <section data-spane="about" hidden>
           <h2>О программе</h2>
+          <div class="meter-box upd-box">
+            <div class="meter-top"><span id="upd-text">Обновления</span>
+              <span class="upd-btns">
+                <button class="btn small" type="button" id="upd-check">Проверить обновления</button>
+                <button class="btn small primary" type="button" id="upd-install" hidden>Перезапустить и обновить</button>
+              </span>
+            </div>
+            <div class="meter" id="upd-bar" hidden><div class="meter-fill open" id="upd-fill"></div></div>
+          </div>
           <pre id="s-about" class="about"></pre>
         </section>
       </div>

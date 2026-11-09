@@ -613,6 +613,8 @@ kbd { background: var(--ink3); border: 1px solid var(--ink4); border-bottom-widt
 .presets small { color: var(--text2); font-size: 12.5px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .about { background: var(--ink0); padding: 15px; border-radius: 16px; white-space: pre-wrap; font-family: inherit; font-size: 13.5px; color: var(--text2); line-height: 1.6; margin: 0; }
+.upd-box { margin-bottom: 12px; }
+.upd-btns { display: flex; gap: 8px; flex: none; }
 
 #picker { width: min(920px, 94vw); }
 .picker-head { display: flex; align-items: center; gap: 10px; padding: 18px 22px; border-bottom: 1px solid var(--line); }

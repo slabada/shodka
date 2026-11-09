@@ -35,6 +35,13 @@ contextBridge.exposeInMainWorld('api', {
   footprint: () => ipcRenderer.invoke('app:footprint'), // «Отчёт о демке»: ЦП «Сходки» по процессам и всего ПК
   notify: (title, body) => ipcRenderer.invoke('app:notify', { title, body }),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
+  // 1.20.5: обновления из GitHub Releases — { status: idle|checking|none|downloading|ready|error|unsupported, version, percent, ... }
+  update: {
+    state: () => ipcRenderer.invoke('update:state'),
+    check: () => ipcRenderer.invoke('update:check'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onState: on('update:state'),
+  },
   // звук компьютера без звука «Сходки» (помощник skh-audiocap.exe)
   procAudio: {
     available: process.platform === 'win32' || !!process.env.SKHODKA_FAKE_PROCAUDIO,

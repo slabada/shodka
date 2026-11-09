@@ -1,7 +1,7 @@
 {
   "name": "skhodka",
   "productName": "Skhodka",
-  "version": "1.20.4",
+  "version": "1.20.5",
   "description": "Сходка — голосовой чат, чат и демонстрация экрана 1080p60 для своей компании: свой сервер в интернете или через Radmin VPN",
   "main": "main.js",
   "author": "Сходка",
@@ -10,12 +10,13 @@
     "start": "electron .",
     "start:second": "electron . --profile=2",
     "test": "node test/syntax.test.js && node test/server.test.js && node test/vps.test.js && node test/rename.test.js && node test/files.test.js && node test/account.test.js && node test/p2p.test.js && node test/bugs.test.js && node test/chat2.test.js && node test/together.test.js && node test/turn.test.js && node test/voicehold.test.js && node test/speedtest.test.js && node --no-warnings test/voice115.test.mjs && node --no-warnings test/demoreport.test.mjs && node test/admins.test.js && node test/sfu.test.js && node test/zip.test.js && node test/store.test.js",
-    "dist": "electron-builder --win portable zip",
+    "dist": "electron-builder --win nsis --x64",
     "pack:server": "python3 scripts/pack-server-win.py dist/skhodka-server-windows.zip"
   },
   "dependencies": {
     "@sapphi-red/web-noise-suppressor": "0.4.1",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "electron-updater": "^6.6.2"
   },
   "optionalDependencies": {
     "uiohook-napi": "^1.5.4"
@@ -42,15 +43,10 @@
     "npmRebuild": false,
     "win": {
       "target": [
-        "portable",
-        "zip"
+        "nsis"
       ],
-      "artifactName": "Skhodka-${version}-${arch}.${ext}",
       "icon": "build/icon.png",
       "signExecutable": false
-    },
-    "portable": {
-      "artifactName": "Skhodka-${version}-portable.exe"
     },
     "extraResources": [
       {
@@ -64,6 +60,20 @@
     ],
     "directories": {
       "output": "dist"
-    }
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Skhodka-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "releaseType": "release"
+      }
+    ]
   }
 }
