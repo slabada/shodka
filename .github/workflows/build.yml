@@ -34,11 +34,13 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      # Собираем без публикации: electron-builder при --publish always грузит файлы параллельно и может создать
+      # два релиза с одним тегом (так было с v1.20.5) — тогда часть файлов не находится по ссылке и обновление ломается.
+      # app-update.yml для автообновления всё равно кладётся в программу — по настройке "publish" в package.json.
       - name: Build installer
         shell: bash
-        run: npx electron-builder --win nsis --x64 --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        run: npx electron-builder --win nsis --x64 --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Upload build
@@ -46,7 +48,23 @@ jobs:
         with:
           name: Skhodka-${{ github.ref_name }}-${{ github.run_number }}
           path: |
-            dist/*.exe
-            dist/*.blockmap
+            dist/Skhodka-Setup-*.exe
+            dist/Skhodka-Setup-*.exe.blockmap
             dist/latest.yml
           retention-days: 14
+
+      # Один релиз со всеми файлами разом: установщик, blockmap (обновление только изменений) и latest.yml
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          files=(dist/Skhodka-Setup-*.exe dist/Skhodka-Setup-*.exe.blockmap dist/latest.yml)
+          ls -la "${files[@]}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "Сходка ${GITHUB_REF_NAME#v}" --generate-notes
+          fi
