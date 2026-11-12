@@ -370,6 +370,7 @@ export class Output {
     this.refBus = this.ctx.createGain();
     this.refBus.channelCount = 1; this.refBus.channelCountMode = 'explicit'; this.refBus.channelInterpretation = 'speakers';
     this.sources = new Map();
+    this.blocked = new Set(); // 1.22: голоса тех, кого замьютили голосованием, — не слышно у всех
     this.deafened = false;
     this.volume = 1;
     this.sinkId = '';
@@ -403,7 +404,7 @@ export class Output {
   }
 
   apply(s) {
-    const eff = this.deafened ? 0 : (s.pct / 100) * this.volume * (s.duck ?? 1);
+    const eff = this.deafened || this.blocked.has(s.key) ? 0 : (s.pct / 100) * this.volume * (s.duck ?? 1);
     if (s.ref) s.ref.gain.setTargetAtTime(eff, this.ctx.currentTime, 0.01);
     if (eff <= 1) {
       if (s.boost) { try { s.boost.disconnect(); } catch (_) { /* ignore */ } s.boost = null; }
@@ -415,6 +416,13 @@ export class Output {
       if (!s.boost) { s.boost = this.ctx.createGain(); s.src.connect(s.boost); s.boost.connect(this.ctx.destination); this.resume(); }
       s.boost.gain.setTargetAtTime(eff, this.ctx.currentTime, 0.02);
     }
+  }
+
+  setBlocked(key, on) {
+    if (!!on === this.blocked.has(key)) return;
+    if (on) this.blocked.add(key); else this.blocked.delete(key);
+    const s = this.sources.get(key);
+    if (s) this.apply(s);
   }
 
   setVolume(pct) { this.volume = pct / 100; for (const s of this.sources.values()) this.apply(s); }

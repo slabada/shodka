@@ -12,7 +12,7 @@ const path = require('path');
 const { Store } = require('./store');
 
 const PROTOCOL_VERSION = 1;
-const FEATURES = ['password', 'avatar', 'p2p', 'chat2', 'voicehold', 'space', 'speedtest', 'admins', 'moddel', 'logpull']; // chat2: ответы, правка, удаление и поиск сообщений // что умеет этот сервер (новые клиенты включают кнопки только при поддержке)
+const FEATURES = ['password', 'avatar', 'p2p', 'chat2', 'voicehold', 'space', 'speedtest', 'admins', 'moddel', 'logpull', 'votes']; // chat2: ответы, правка, удаление и поиск сообщений // что умеет этот сервер (новые клиенты включают кнопки только при поддержке)
 const VOICE_ROOMS = ['Балдёж'];
 const NAME_RE = /^[\p{L}\p{N}_.\-]{2,24}$/u;
 // ники, совпадающие со служебными словами JavaScript («__proto__», «constructor»…), запрещены
@@ -334,9 +334,9 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
     const rooms = {};
     for (const r of VOICE_ROOMS) rooms[r] = [];
     for (const c of authed()) {
-      if (c.voice) rooms[c.voice.room].push({ name: c.user, muted: !!c.voice.muted, deafened: !!c.voice.deafened, streaming: !!c.voice.streaming });
+      if (c.voice) { const fm = !!mutedLeft(c.user); rooms[c.voice.room].push({ name: c.user, muted: !!c.voice.muted || fm, deafened: !!c.voice.deafened, streaming: !!c.voice.streaming, ...(fm ? { forceMuted: true } : {}) }); }
     }
-    for (const h of holds.values()) rooms[h.room].push({ name: h.name, muted: !!h.muted, deafened: !!h.deafened, streaming: !!h.streaming, away: true });
+    for (const h of holds.values()) { const fm = !!mutedLeft(h.name); rooms[h.room].push({ name: h.name, muted: !!h.muted || fm, deafened: !!h.deafened, streaming: !!h.streaming, away: true, ...(fm ? { forceMuted: true } : {}) }); }
     return rooms;
   }
   // «вместе N мин»: встреча начинается, когда в комнате стало двое и больше. Короткий обрыв (до минуты)
@@ -389,8 +389,98 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
     pushVoice();
   }
 
+  // ---------- голосования за кик и мут (1.22) ----------
+  // Любой в сети предлагает: /kick ник — выгнать из голосовой комнаты (вернуться нельзя N минут),
+  // /mute ник — без микрофона и без общего чата на N минут. Решают те, кто в сети (кроме самого ника):
+  // нужно больше половины «за» и минимум двое. Предложивший — сразу «за». Админ может отменить голосование
+  // и снять наказание. Наказания живут в памяти сервера: перезапуск их снимает.
+  const VOTE_MS = 60e3;
+  const votes = new Map(); // id → { id, kind, target, by, minutes, ballots: Map(ключ → { name, yes }), ends, timer }
+  const sanctions = new Map(); // ключ ника → { name, mute: до когда, ban: до когда, timers }
+  const sanctionLeft = (name, field) => { const s = sanctions.get(Store.key(name)); const t = s ? s[field] - Date.now() : 0; return t > 0 ? t : 0; };
+  const mutedLeft = (name) => sanctionLeft(name, 'mute');
+  const banLeft = (name) => sanctionLeft(name, 'ban');
+  const fmtLeft = (ms) => { const min = Math.ceil(ms / 60e3); return `${min} мин`; };
+  const inVoiceNow = (name) => connsOf(name).some((c) => c.voice) || holds.has(Store.key(name));
+  function tally(v) {
+    const tk = Store.key(v.target);
+    const keys = new Set(authed().map((c) => Store.key(c.user)).filter((k) => k !== tk));
+    for (const k of v.ballots.keys()) keys.add(k); // проголосовал и вышел — голос остаётся
+    const yes = [], no = [];
+    for (const b of v.ballots.values()) (b.yes ? yes : no).push(b.name);
+    return { total: keys.size, need: Math.max(2, Math.floor(keys.size / 2) + 1), yes, no };
+  }
+  const voteView = (v, status = 'open') => ({ id: v.id, kind: v.kind, target: v.target, by: v.by, minutes: v.minutes, left: Math.max(0, v.ends - Date.now()), status, ...tally(v) });
+  function sendSanction(name) { sendToUser(name, { type: 'sanction', mute: mutedLeft(name), ban: banLeft(name) }); }
+  function liftSanction(name, kind, why) {
+    const k = Store.key(name); const s = sanctions.get(k);
+    const field = kind === 'kick' ? 'ban' : 'mute';
+    if (!s || !s[field]) return false;
+    clearTimeout(s.timers[field]); s[field] = 0;
+    if (!s.mute && !s.ban) sanctions.delete(k);
+    log('info', 'server', `${s.name}: ${kind === 'kick' ? 'снова можно в голос' : 'мут снят'} (${why})`);
+    sendSanction(s.name);
+    if (kind === 'mute') pushVoice();
+    return true;
+  }
+  function applySanction(name, kind, minutes) {
+    const k = Store.key(name);
+    const s = sanctions.get(k) || { name, mute: 0, ban: 0, timers: {} };
+    const field = kind === 'kick' ? 'ban' : 'mute';
+    s.name = name; s[field] = Date.now() + minutes * 60e3;
+    clearTimeout(s.timers[field]);
+    s.timers[field] = setTimeout(() => liftSanction(s.name, kind, 'время вышло'), minutes * 60e3);
+    if (s.timers[field].unref) s.timers[field].unref();
+    sanctions.set(k, s);
+    if (kind === 'kick') {
+      for (const c of connsOf(name)) {
+        if (!c.voice) continue;
+        leaveVoice(c, 'выгнали голосованием');
+        send(c, { type: 'voice_kicked', reason: `Вас выгнали из голоса голосованием на ${minutes} мин` });
+      }
+      dropHold(name, 'выгнали голосованием');
+    } else {
+      for (const c of connsOf(name)) if (c.voice) c.voice.muted = true;
+      pushVoice();
+    }
+    sendSanction(name);
+  }
+  function finishVote(v, status) {
+    if (!votes.has(v.id)) return;
+    clearTimeout(v.timer); votes.delete(v.id);
+    const t = tally(v);
+    log('info', 'server', `Голосование «${v.kind === 'kick' ? 'кик' : 'мут'} ${v.target}»: ${status} (за ${t.yes.length}, против ${t.no.length}, нужно ${t.need} из ${t.total})`);
+    broadcast({ type: 'vote', vote: voteView(v, status) });
+    if (status === 'passed') applySanction(v.target, v.kind, v.minutes);
+  }
+  // голоса набрались — принято; «за» уже не набрать, даже если все оставшиеся согласятся — не прошло
+  function checkVote(v) {
+    const t = tally(v);
+    if (t.yes.length >= t.need) return finishVote(v, 'passed');
+    if (t.yes.length + (t.total - t.yes.length - t.no.length) < t.need) return finishVote(v, 'failed');
+    broadcast({ type: 'vote', vote: voteView(v) });
+  }
+  const refreshVotes = () => { for (const v of [...votes.values()]) checkVote(v); };
+  // голосование, о котором речь: по id, по нику (если голосований несколько) или единственное
+  function findVote(conn, m) {
+    if (m.id) return votes.get(String(m.id)) || null;
+    let list = [...votes.values()];
+    if (m.target) list = list.filter((v) => Store.key(v.target) === Store.key(String(m.target)));
+    return list.length ? list[list.length - 1] : null;
+  }
+
   // ник сменился: у всех подключений этого пользователя новое имя, остальным — событие и свежие списки
   function announceRename(from, to, user) {
+    const fk = Store.key(from), tk = Store.key(to);
+    const s = sanctions.get(fk);
+    if (s && fk !== tk) { sanctions.delete(fk); sanctions.set(tk, s); }
+    if (s) s.name = to;
+    for (const v of votes.values()) {
+      if (v.by === from) v.by = to;
+      if (Store.key(v.target) === fk) v.target = to;
+      const b = v.ballots.get(fk);
+      if (b) { v.ballots.delete(fk); b.name = to; v.ballots.set(tk, b); }
+    }
     for (const c of authed()) if (Store.key(c.user) === Store.key(from)) c.user = to;
     if (sfu) sfu.rename(Store.key(from), Store.key(to), to);
     broadcast({ type: 'user_renamed', from, to });
@@ -435,7 +525,10 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
       ...(sfu ? { sfu: !!sfu.up } : {}),
     });
     log('info', 'server', `${user.name} вошёл (${conn.addr})`);
-    if (!wasOnline) pushUsers();
+    // всегда, даже пустые: после переподключения программа сверяет, что изменилось, пока её не было
+    send(conn, { type: 'votes', list: [...votes.values()].map((v) => voteView(v)) });
+    send(conn, { type: 'sanction', mute: mutedLeft(user.name), ban: banLeft(user.name) });
+    if (!wasOnline) { pushUsers(); if (votes.size) refreshVotes(); }
   }
 
   // ---------- обработчики сообщений ----------
@@ -638,8 +731,70 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
       pushUsers();
     },
 
+    // ---- голосования за кик и мут (1.22) ----
+    vote_start(conn, m) {
+      const kind = m.kind === 'kick' || m.kind === 'mute' ? m.kind : null;
+      if (!kind) return err(conn, 'bad_vote', 'Голосовать можно за кик или мут', m.ref);
+      const u = store.getUser(String(m.target || '').replace(/^@/, ''));
+      if (!u) return err(conn, 'no_user', `Ника «${String(m.target || '').slice(0, 30)}» на сервере нет`, m.ref);
+      if (Store.key(u.name) === Store.key(conn.user)) return err(conn, 'self', 'Голосовать против себя нельзя', m.ref);
+      if (!isOnline(u.name)) return err(conn, 'offline', `${u.name} сейчас не в сети`, m.ref);
+      if (kind === 'kick' && !inVoiceNow(u.name)) return err(conn, 'not_in_voice', `${u.name} не в голосовой комнате — выгонять неоткуда`, m.ref);
+      if (kind === 'kick' && banLeft(u.name)) return err(conn, 'already', `${u.name} уже выгнан — вернуться сможет через ${fmtLeft(banLeft(u.name))}`, m.ref);
+      if (kind === 'mute' && mutedLeft(u.name)) return err(conn, 'already', `${u.name} уже замьючен ещё ${fmtLeft(mutedLeft(u.name))}`, m.ref);
+      if ([...votes.values()].some((v) => v.kind === kind && Store.key(v.target) === Store.key(u.name))) return err(conn, 'already', 'Такое голосование уже идёт — голосуйте /yes или /no', m.ref);
+      if (votes.size >= 3) return err(conn, 'too_many', 'Сейчас идут три голосования — дождитесь, пока какое-нибудь закончится', m.ref);
+      const others = new Set(authed().map((c) => Store.key(c.user)).filter((k) => k !== Store.key(u.name)));
+      if (others.size < 2) return err(conn, 'few', 'Для голосования нужно хотя бы двое в сети, не считая того, против кого голосуют', m.ref);
+      const now = Date.now();
+      conn.voteTimes = (conn.voteTimes || []).filter((t) => now - t < 60e3);
+      if (conn.voteTimes.length >= 3) return err(conn, 'flood', 'Слишком часто — подождите минуту', m.ref);
+      conn.voteTimes.push(now);
+      const minutes = Math.max(1, Math.min(60, Math.round(Number(m.minutes) || 5)));
+      const v = { id: crypto.randomBytes(6).toString('hex'), kind, target: u.name, by: conn.user, minutes, ballots: new Map([[Store.key(conn.user), { name: conn.user, yes: true }]]), ends: now + VOTE_MS };
+      v.timer = setTimeout(() => finishVote(v, 'expired'), VOTE_MS);
+      if (v.timer.unref) v.timer.unref();
+      votes.set(v.id, v);
+      log('info', 'server', `${conn.user} начал голосование: ${kind === 'kick' ? 'выгнать из голоса' : 'замьютить'} ${u.name} на ${minutes} мин`);
+      send(conn, { type: 'ok', ref: m.ref, id: v.id });
+      checkVote(v);
+    },
+
+    vote_cast(conn, m) {
+      const v = findVote(conn, m);
+      if (!v) return err(conn, 'no_vote', 'Сейчас нет голосования', m.ref);
+      if (Store.key(v.target) === Store.key(conn.user)) return err(conn, 'self', 'Голосуют без вас — это голосование про вас', m.ref);
+      const k = Store.key(conn.user);
+      const was = v.ballots.get(k);
+      if (was && was.yes === !!m.yes) return send(conn, { type: 'ok', ref: m.ref, id: v.id });
+      v.ballots.set(k, { name: conn.user, yes: !!m.yes });
+      send(conn, { type: 'ok', ref: m.ref, id: v.id });
+      checkVote(v);
+    },
+
+    // отменить голосование: тот, кто его начал, или админ
+    vote_cancel(conn, m) {
+      const v = findVote(conn, m);
+      if (!v) return err(conn, 'no_vote', 'Сейчас нет голосования', m.ref);
+      if (Store.key(v.by) !== Store.key(conn.user) && !isAdmin(conn)) return err(conn, 'forbidden', 'Отменить может тот, кто начал голосование, или админ', m.ref);
+      send(conn, { type: 'ok', ref: m.ref, id: v.id });
+      finishVote(v, 'cancelled');
+    },
+
+    // админ снимает мут или разрешает вернуться в голос раньше срока
+    sanction_lift(conn, m) {
+      if (!isAdmin(conn)) return err(conn, 'forbidden', 'Снять наказание раньше срока может только админ сервера', m.ref);
+      const kind = m.kind === 'kick' ? 'kick' : 'mute';
+      const u = store.getUser(String(m.target || '').replace(/^@/, ''));
+      if (!u) return err(conn, 'no_user', 'Пользователь не найден', m.ref);
+      if (!liftSanction(u.name, kind, `снял ${conn.user || 'хост'}`)) return err(conn, 'none', kind === 'kick' ? `${u.name} никто не выгонял` : `${u.name} не замьючен`, m.ref);
+      send(conn, { type: 'ok', ref: m.ref, target: u.name });
+      broadcast({ type: 'sanction_lifted', kind, target: u.name, by: conn.user });
+    },
+
     // ---- чат ----
     chat_send(conn, m) {
+      if (m.channel === 'general' && mutedLeft(conn.user)) return err(conn, 'muted', `Вас замьютили голосованием — в общий чат можно писать через ${fmtLeft(mutedLeft(conn.user))}. Личные сообщения работают`, m.ref);
       const text = String(m.text || '').trim();
       let image = null;
       if (m.image) {
@@ -757,6 +912,8 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
     // ---- голос ----
     voice_join(conn, m) {
       if (!VOICE_ROOMS.includes(m.room)) return err(conn, 'bad_room', 'Нет такой голосовой комнаты', m.ref);
+      if (banLeft(conn.user)) return err(conn, 'voice_banned', `Вас выгнали из голоса голосованием — вернуться можно через ${fmtLeft(banLeft(conn.user))}`, m.ref);
+      if (mutedLeft(conn.user)) m.muted = true;
       // один пользователь — одна голосовая сессия: выкидываем старую (другое окно/ПК)
       for (const c of connsOf(conn.user)) {
         if (c !== conn && c.voice) { leaveVoice(c, 'вход с другого окна'); send(c, { type: 'voice_kicked', reason: 'Вы подключились к голосу из другого окна' }); }
@@ -796,7 +953,7 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
 
     voice_state(conn, m) {
       if (!conn.voice) return;
-      if ('muted' in m) conn.voice.muted = !!m.muted;
+      if ('muted' in m) conn.voice.muted = !!m.muted || !!mutedLeft(conn.user);
       if ('deafened' in m) conn.voice.deafened = !!m.deafened;
       if ('streaming' in m) conn.voice.streaming = !!m.streaming;
       if (sfu && 'streaming' in m && !m.streaming) sfu.closeProducers(Store.key(conn.user)); // показ закончился — его поток в размножителе тоже
@@ -911,7 +1068,7 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
       if (!h) return err(conn, 'unknown', `Неизвестная команда: ${m.type}`, m.ref);
       if (!PUBLIC.has(m.type) && !conn.user) return err(conn, 'auth', 'Сначала войдите в аккаунт', m.ref);
       if (NEEDS_SERVER_PASSWORD.has(m.type) && !conn.passOk) return err(conn, 'server_password', 'Нужен пароль сервера', m.ref);
-      if (m.type === 'chat_send' || m.type === 'chat_edit' || m.type === 'chat_delete') {
+      if (m.type === 'chat_send' || m.type === 'chat_edit' || m.type === 'chat_delete' || m.type === 'vote_cast') {
         const now = Date.now();
         conn.chatTimes = conn.chatTimes.filter((t) => now - t < 5000);
         if (conn.chatTimes.length >= 8) return err(conn, 'flood', 'Слишком часто — подождите пару секунд', m.ref);
@@ -933,6 +1090,7 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
         log('info', 'server', `${conn.user} отключился (код ${code})`);
         if (!isOnline(conn.user)) {
           pushUsers();
+          if (votes.size) refreshVotes(); // ушёл — без него голосов может хватить (или уже не хватить)
           const u = store.getUser(conn.user);
           if (u) { u.lastSeen = Date.now(); store.scheduleSave(); }
         }
@@ -967,6 +1125,8 @@ function createServer({ port = 41234, host = '0.0.0.0', dataDir, log = () => {},
         close: () => new Promise((res) => {
           clearInterval(heartbeat); clearInterval(sweepTimer);
           closing = true; for (const h of holds.values()) clearTimeout(h.timer); holds.clear();
+          for (const v of votes.values()) clearTimeout(v.timer); votes.clear();
+          for (const x of sanctions.values()) for (const t of Object.values(x.timers)) clearTimeout(t);
           for (const c of clients) { try { c.ws.close(1001, 'host shutdown'); } catch (_) { /* ignore */ } }
           store.flush();
           wss.close();

@@ -433,7 +433,7 @@ function enterMain(m, again = false) {
   // запоминаем ник и закрепляем его за этим компьютером (для входов, сделанных раньше по паролю)
   if (settings.nick !== m.name) set({ nick: m.name });
   S.conn.send({ type: 'bind_key', key: deviceKey() });
-  S.users = m.users; S.rooms = m.rooms; S.voiceRooms = m.voiceRooms; setTogether(m.together);
+  S.users = m.users; S.rooms = m.rooms; S.voiceRooms = m.voiceRooms; setTogether(m.together); applyForceMutes(m.rooms);
   // другой сервер или другой аккаунт — старые «непрочитанные» и открытая личка к нему не относятся
   const session = `${S.host}:${S.port}|${lower(m.name)}`;
   if (S.session !== session) { S.unread.clear(); S.session = session; }
@@ -506,10 +506,14 @@ function bindConnection(conn) {
   conn.on('users', (m) => { S.users = m.list; renderMembers(); renderDms(); refreshAvatars(); refreshP2PCards(); });
   conn.on('p2p', (m) => p2p.handle(m.from, m.fromConn, m.data));
   conn.on('voice_rooms', (m) => {
-    S.rooms = m.rooms; setTogether(m.together); onRoomsChanged();
+    S.rooms = m.rooms; setTogether(m.together); applyForceMutes(m.rooms); onRoomsChanged();
     if (S.voice && S.inVoice) S.voice.syncRoom((m.rooms[S.inVoice] || []).map((x) => x.name));
   });
   conn.on('chat', (m) => onChat(m.msg));
+  conn.on('vote', (m) => onVote(m.vote));
+  conn.on('votes', (m) => onVotes(m.list || []));
+  conn.on('sanction', (m) => onSanction(m));
+  conn.on('sanction_lifted', (m) => { if (!sameName(m.target, S.me) && !sameName(m.by, S.me)) toast(m.kind === 'kick' ? `${m.by} пустил ${m.target} обратно в голос` : `${m.by} снял мут с ${m.target}`); });
   conn.on('chat_update', (m) => onChatUpdate(m.msg));
   conn.on('user_renamed', (m) => onRenamed(m.from, m.to, m.merged));
   // админ удалил вас с сервера: не переподключаемся (иначе ник тут же создастся заново), возвращаемся к выбору сервера
@@ -1030,6 +1034,12 @@ $('composer').addEventListener('submit', async (e) => {
     return;
   }
   if (!text) return;
+  if (text.startsWith('/') && findCommand(text.slice(1).split(/\s/)[0])) { // 1.22: команды голосований
+    input.value = ''; input.style.height = 'auto'; $('cmd-hint').hidden = true;
+    await runCommand(text);
+    return;
+  }
+  if (S.chat === 'general' && forcedMuteLeft()) return toast(`Вас замьютили — в общий чат можно писать через ${fmtMin(forcedMuteLeft())}`, { hint: 'Личные сообщения работают.' });
   input.value = ''; input.style.height = 'auto';
   const reply = ctx && ctx.mode === 'reply' && chatKeyOf(ctx.msg) === S.chat ? ctx.msg.id : undefined;
   if (ctx) { S.compose = null; renderCompose(); }
@@ -1050,6 +1060,191 @@ input.addEventListener('keydown', (e) => {
     if (last) { e.preventDefault(); startEdit(last); }
   }
 });
+
+// ===================== голосования за кик и мут (1.22) =====================
+// Команды в поле ввода: /kick ник [мин] — выгнать из голоса, /mute ник [мин] — без микрофона и общего чата,
+// /yes и /no — голос, /cancel — отменить; админу — /unmute и /unkick. Голосуют все, кто в сети:
+// нужно больше половины «за» (минимум двое). Считает и наказывает сервер.
+S.votes = new Map(); // id → голосование (ends — по часам этого компьютера)
+S.sanction = { mute: 0, ban: 0 }; // до когда (по часам этого компьютера) меня замьютили / выгнали из голоса
+const forcedMuteLeft = () => Math.max(0, S.sanction.mute - Date.now());
+const voiceBanLeft = () => Math.max(0, S.sanction.ban - Date.now());
+const fmtMin = (ms) => `${Math.max(1, Math.ceil(ms / 60e3))} мин`;
+const COMMANDS = [
+  { names: ['kick', 'кик'], args: 'ник [минут]', about: 'голосование: выгнать из голосовой комнаты' },
+  { names: ['mute', 'мут'], args: 'ник [минут]', about: 'голосование: без микрофона и общего чата' },
+  { names: ['yes', 'да', 'за'], args: '', about: 'голос «за»' },
+  { names: ['no', 'нет', 'против'], args: '', about: 'голос «против»' },
+  { names: ['cancel', 'отмена'], args: '', about: 'отменить своё голосование (админ — любое)' },
+  { names: ['unmute', 'размут'], args: 'ник', about: 'снять мут раньше срока', admin: true },
+  { names: ['unkick', 'разкик'], args: 'ник', about: 'пустить в голос раньше срока', admin: true },
+  { names: ['help', 'помощь', 'команды'], args: '', about: 'список команд' },
+];
+const findCommand = (word) => COMMANDS.find((c) => c.names.includes(lower(word)));
+const voteTitle = (v, forMe) => (v.kind === 'kick'
+  ? (forMe ? `Голосуют, чтобы выгнать вас из голоса на ${v.minutes} мин` : `Выгнать ${v.target} из голоса на ${v.minutes} мин?`)
+  : (forMe ? `Голосуют, чтобы замьютить вас на ${v.minutes} мин` : `Замьютить ${v.target} на ${v.minutes} мин?`));
+const voteSub = (v) => `предложил ${v.by} · за ${v.yes.length}, против ${v.no.length} · нужно ${v.need} из ${v.total} · ${Math.max(0, Math.ceil((v.ends - Date.now()) / 1000))} с`;
+
+// команда из поля ввода; false — это не команда (уйдёт обычным сообщением)
+async function runCommand(text) {
+  const [head, ...rest] = text.slice(1).trim().split(/\s+/);
+  const cmd = findCommand(head || '');
+  if (!cmd) return false;
+  const name = cmd.names[0];
+  if (name === 'help') { input.value = '/'; input.focus(); updateCmdHint(); return true; }
+  if (!S.conn || !S.me) { toast('Сначала подключитесь к серверу'); return true; }
+  if (!serverHas('votes')) { toast('Этот сервер не умеет голосования', { hint: 'Обновите «Сходку» у хоста (или сервер на VPS) до 1.22 — команды заработают.' }); return true; }
+  const nick = (rest[0] || '').replace(/^@/, '');
+  const known = nick && S.users.find((u) => sameName(u.name, nick));
+  const target = known ? known.name : nick;
+  try {
+    if (name === 'kick' || name === 'mute') {
+      if (!nick) { toast(`Напишите ник: /${head} ник [минут]`); return true; }
+      const minutes = rest[1] ? Number(rest[1]) : 5;
+      if (!Number.isInteger(minutes) || minutes < 1 || minutes > 60) { toast('Срок — от 1 до 60 минут, целым числом'); return true; }
+      await S.conn.request({ type: 'vote_start', kind: name, target, minutes });
+    } else if (name === 'yes' || name === 'no') {
+      await S.conn.request({ type: 'vote_cast', yes: name === 'yes', ...(nick ? { target } : {}) });
+    } else if (name === 'cancel') {
+      await S.conn.request({ type: 'vote_cancel', ...(nick ? { target } : {}) });
+    } else if (name === 'unmute' || name === 'unkick') {
+      if (!nick) { toast(`Напишите ник: /${head} ник`); return true; }
+      const r = await S.conn.request({ type: 'sanction_lift', kind: name === 'unkick' ? 'kick' : 'mute', target });
+      toast(name === 'unkick' ? `${r.target || target} снова может заходить в голос` : `С ${r.target || target} снят мут`, { kind: 'ok' });
+    }
+  } catch (err) {
+    toast(err.message, { kind: 'error' });
+    if (!input.value) { input.value = text; input.dispatchEvent(new Event('input')); }
+  }
+  return true;
+}
+
+function castVote(v, yes) { S.conn.request({ type: 'vote_cast', id: v.id, yes }).catch((err) => toast(err.message, { kind: 'error' })); }
+function cancelVote(v) { S.conn.request({ type: 'vote_cancel', id: v.id }).catch((err) => toast(err.message, { kind: 'error' })); }
+
+let voteTick = null;
+function renderVotes() {
+  const box = $('votes');
+  const list = [...S.votes.values()];
+  box.hidden = !list.length;
+  box.replaceChildren(...list.map(voteCard));
+  if (list.length && !voteTick) voteTick = setInterval(tickVotes, 1000);
+  if (!list.length && voteTick) { clearInterval(voteTick); voteTick = null; }
+}
+function tickVotes() {
+  for (const v of S.votes.values()) { const s = document.querySelector(`.vote-card[data-vote="${v.id}"] .vc-sub`); if (s) s.textContent = voteSub(v); }
+}
+function voteCard(v) {
+  const forMe = sameName(v.target, S.me);
+  const mine = v.yes.some((n) => sameName(n, S.me)) ? 'yes' : v.no.some((n) => sameName(n, S.me)) ? 'no' : '';
+  const total = Math.max(1, v.total);
+  const btn = (yes) => {
+    const who = yes ? v.yes : v.no;
+    return el('button', { type: 'button', class: 'btn small' + (mine === (yes ? 'yes' : 'no') ? ' chosen' : ''),
+      'data-tip': who.length ? (yes ? 'За: ' : 'Против: ') + who.join(', ') : null,
+      onclick: () => castVote(v, yes) }, yes ? 'За' : 'Против');
+  };
+  return el('div', { class: 'vote-card', 'data-vote': v.id },
+    icon(v.kind === 'kick' ? 'leave' : 'mic-off'),
+    el('div', { class: 'vc-text' },
+      el('b', { text: voteTitle(v, forMe) }),
+      el('span', { class: 'vc-sub', text: voteSub(v) }),
+      el('div', { class: 'vc-bar' }, el('i', { style: `width:${(v.yes.length / total) * 100}%` }), el('i', { class: 'no', style: `width:${(v.no.length / total) * 100}%` }))),
+    forMe ? null : el('div', { class: 'vc-btns' }, btn(true), btn(false)),
+    sameName(v.by, S.me) || S.isAdmin ? el('button', { class: 'icon-btn', type: 'button', 'data-tip': 'Отменить голосование', onclick: () => cancelVote(v) }, icon('x')) : null);
+}
+
+function onVote(v, quiet = false) {
+  const known = S.votes.has(v.id);
+  const forMe = sameName(v.target, S.me);
+  if (v.status === 'open') {
+    S.votes.set(v.id, { ...v, ends: Date.now() + (v.left || 0) });
+    if (!known && !quiet && !sameName(v.by, S.me)) {
+      output.beep('message');
+      toast(forMe ? voteTitle(v, true) : `${v.by}: ${voteTitle(v, false)}`, {
+        hint: forMe ? 'Решают остальные — на голосование минута.' : 'Голосуйте кнопками над полем ввода или командами /yes и /no.',
+        timeout: 12000, onclick: () => openChannel('general') });
+    }
+  } else {
+    S.votes.delete(v.id);
+    if (!quiet) {
+      const counts = `за ${v.yes.length}, против ${v.no.length}, нужно было ${v.need}`;
+      if (v.status === 'passed') { if (!forMe) toast(v.kind === 'kick' ? `${v.target} выгнан из голоса на ${v.minutes} мин` : `${v.target} замьючен на ${v.minutes} мин`, { kind: 'ok', hint: counts }); }
+      else if (v.status === 'cancelled') toast(`Голосование против ${forMe ? 'вас' : v.target} отменено`);
+      else toast(`Голосование против ${forMe ? 'вас' : v.target} не прошло`, { hint: v.status === 'expired' ? `Минута вышла: ${counts}` : counts });
+    }
+  }
+  renderVotes();
+}
+function onVotes(list) {
+  const ids = new Set(list.map((v) => v.id));
+  for (const id of [...S.votes.keys()]) if (!ids.has(id)) S.votes.delete(id); // закончились, пока не было связи
+  for (const v of list) onVote(v, true);
+  renderVotes();
+}
+
+// меня замьютили или выгнали из голоса (или срок закончился)
+function onSanction(m) {
+  const was = { ...S.sanction }; const now = Date.now();
+  S.sanction = { mute: m.mute ? now + m.mute : 0, ban: m.ban ? now + m.ban : 0 };
+  if (S.sanction.mute && !was.mute) {
+    if (!S.muted) { S.muted = true; mic.setMuted(true); output.beep('mute'); sendVoiceState(); }
+    toast(`Вас замьютили голосованием на ${fmtMin(m.mute)}`, { kind: 'error', hint: 'Микрофон и общий чат выключены до конца срока. Личные сообщения работают.', timeout: 12000 });
+  } else if (!S.sanction.mute && was.mute) toast('Мут снят — можно включить микрофон', { kind: 'ok' });
+  if (!S.sanction.ban && was.ban) toast('Снова можно заходить в голосовые комнаты', { kind: 'ok' });
+  renderMuteButtons();
+}
+
+// голоса замьюченных не слышно у всех — даже если их программа почему-то не выключила микрофон
+function applyForceMutes(rooms) {
+  const want = new Set();
+  for (const list of Object.values(rooms || {})) for (const x of list) if (x.forceMuted && !sameName(x.name, S.me)) want.add('voice:' + x.name);
+  for (const k of [...output.blocked]) if (!want.has(k)) output.setBlocked(k, false);
+  for (const k of want) output.setBlocked(k, true);
+}
+
+// подсказка команд: набрали «/» — список; ↑↓ выбрать, Tab или Enter — подставить, Esc — закрыть
+let cmdSel = 0;
+function cmdMatches() {
+  const v = input.value;
+  if (!v.startsWith('/') || /\s/.test(v) || (S.compose && S.compose.mode === 'edit') || !serverHas('votes')) return [];
+  const w = lower(v.slice(1));
+  return COMMANDS.filter((c) => (!c.admin || S.isAdmin) && c.names.some((n) => n.startsWith(w)));
+}
+function updateCmdHint() {
+  const box = $('cmd-hint'); const list = cmdMatches();
+  box.hidden = !list.length;
+  if (!list.length) { box.textContent = ''; cmdSel = 0; return; }
+  cmdSel = Math.max(0, Math.min(cmdSel, list.length - 1));
+  const w = lower(input.value.slice(1));
+  box.replaceChildren(...list.map((c, i) => {
+    const n = c.names.find((x) => x.startsWith(w)) || c.names[0];
+    return el('button', { type: 'button', class: i === cmdSel ? 'sel' : '', onmousedown: (e) => { e.preventDefault(); pickCmd(c, n); } },
+      el('b', { text: '/' + n + (c.args ? ' ' + c.args : '') }), el('span', { text: c.about }));
+  }));
+}
+function pickCmd(c, n) {
+  if (c.names[0] === 'help') { input.value = '/'; updateCmdHint(); return; }
+  input.value = '/' + n + (c.args ? ' ' : '');
+  input.focus(); input.dispatchEvent(new Event('input'));
+}
+input.addEventListener('input', () => { cmdSel = 0; updateCmdHint(); });
+input.addEventListener('blur', () => { $('cmd-hint').hidden = true; });
+input.addEventListener('focus', updateCmdHint);
+// раньше обработчика Enter → «отправить»: пока открыта подсказка, Enter подставляет команду
+input.addEventListener('keydown', (e) => {
+  if ($('cmd-hint').hidden) return;
+  const list = cmdMatches();
+  if (!list.length) return;
+  const stop = () => { e.preventDefault(); e.stopImmediatePropagation(); };
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { stop(); cmdSel = (cmdSel + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length; updateCmdHint(); return; }
+  if (e.key === 'Escape') { stop(); $('cmd-hint').hidden = true; return; }
+  const w = lower(input.value.slice(1));
+  const c = list[cmdSel];
+  const exact = c.names.includes(w) && !c.args; // «/yes» целиком — Enter сразу отправляет
+  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey && !exact)) { stop(); pickCmd(c, c.names.find((x) => x.startsWith(w)) || c.names[0]); }
+}, true);
 
 // ===================== смена ника =====================
 // Сервер переименовал пользователя (или объединил старый ник того же компьютера с новым):
@@ -1631,6 +1826,7 @@ mic.on((ev) => {
 
 async function joinVoice(room) {
   if (S.inVoice === room) { openView('voice'); return; }
+  if (voiceBanLeft()) { toast(`Вас выгнали из голоса голосованием — вернуться можно через ${fmtMin(voiceBanLeft())}`, { kind: 'error' }); return; }
   if (S.joining) return;
   S.joining = true;
   try {
@@ -1966,7 +2162,10 @@ function renderMuteButtons() {
 if (api.trayPrefs) api.trayPrefs({ closeToTray: settings.closeToTray !== false });
 if (api.onTrayAction) api.onTrayAction((a) => { if (a === 'mute') $('btn-mute').click(); });
 $('btn-mute').onclick = () => {
-  if (S.deafened) { S.deafened = false; S.muted = false; output.setDeafened(false); } else S.muted = !S.muted;
+  const forced = forcedMuteLeft(); // 1.22: замьючен голосованием — микрофон не включается до конца срока
+  if (S.deafened) { S.deafened = false; S.muted = !!forced; output.setDeafened(false); }
+  else if (forced && S.muted) { toast(`Вас замьютили голосованием — микрофон можно будет включить через ${fmtMin(forced)}`); return; }
+  else S.muted = !S.muted;
   mic.setMuted(S.muted || S.deafened);
   output.beep(S.muted ? 'mute' : 'unmute');
   sendVoiceState(); renderMuteButtons();
@@ -2057,7 +2256,7 @@ function renderTiles() {
       el('div', { class: 'tname', text: me ? `${m.name} (вы)` : m.name }),
       // 1.20: под именем — что с человеком сейчас и пинг; «говорит» с полосками показывается, пока он говорит
       el('div', { class: 'tsub' },
-        el('span', { class: 'tst', text: me ? 'вы' : m.streaming ? 'в эфире' : m.deafened ? 'без звука' : m.muted ? 'без микрофона' : '' }),
+        el('span', { class: 'tst', text: me ? 'вы' : m.streaming ? 'в эфире' : m.forceMuted ? 'замьючен' : m.deafened ? 'без звука' : m.muted ? 'без микрофона' : '' }),
         el('span', { class: 'tsp' }, el('span', { class: 'bars' }, el('i'), el('i'), el('i'), el('i')), 'говорит'),
         el('span', { class: 'tping', 'data-ping': m.name })));
     if (m.streaming && !me) {
