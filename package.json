@@ -1,7 +1,7 @@
 {
   "name": "skhodka",
   "productName": "Skhodka",
-  "version": "1.22.0",
+  "version": "1.23.0",
   "description": "Сходка — голосовой чат, чат и демонстрация экрана 1080p60 для своей компании: свой сервер в интернете или через Radmin VPN",
   "main": "main.js",
   "author": "Сходка",

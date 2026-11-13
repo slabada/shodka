@@ -1199,7 +1199,7 @@ function onSanction(m) {
 // голоса замьюченных не слышно у всех — даже если их программа почему-то не выключила микрофон
 function applyForceMutes(rooms) {
   const want = new Set();
-  for (const list of Object.values(rooms || {})) for (const x of list) if (x.forceMuted && !sameName(x.name, S.me)) want.add('voice:' + x.name);
+  for (const list of Object.values(rooms || {})) for (const x of list) if (x.forceMuted && !sameName(x.name, S.me)) for (const k of ['voice:', 'music:', 'sfx:']) want.add(k + x.name);
   for (const k of [...output.blocked]) if (!want.has(k)) output.setBlocked(k, false);
   for (const k of want) output.setBlocked(k, true);
 }
@@ -2681,6 +2681,7 @@ function openPopover(e, name) {
   $('pop-title').replaceChildren(avatar(name), el('span', { text: name }));
   const v = (settings.userVolumes || {})[name] ?? 100;
   $('pop-vol').value = v; $('pop-vol-val').textContent = v + '%';
+  for (const k of ['music', 'sfx']) { const x = (settings[k === 'music' ? 'userMusicVolumes' : 'userSfxVolumes'] || {})[name] ?? 100; $('pop-' + k).value = x; $('pop-' + k + '-val').textContent = fxPct(x); }
   $('pop-dm').textContent = 'Написать';
   $('pop-dm').onclick = () => { pop.hidden = true; openChannel('dm:' + name); };
   const u = S.users.find((x) => sameName(x.name, name));
@@ -2703,7 +2704,7 @@ function openPopover(e, name) {
   };
   pop.hidden = false;
   pop.style.left = Math.min(e.clientX, innerWidth - 250) + 'px';
-  pop.style.top = Math.min(e.clientY, innerHeight - (S.isAdmin ? 290 : 170)) + 'px';
+  pop.style.top = Math.max(8, Math.min(e.clientY, innerHeight - (S.isAdmin ? 400 : 280))) + 'px';
 }
 $('pop-vol').oninput = (e) => {
   const v = Number(e.target.value);
@@ -2711,6 +2712,16 @@ $('pop-vol').oninput = (e) => {
   set({ userVolumes: { ...(settings.userVolumes || {}), [popName]: v } });
   output.setSourceVolume('voice:' + popName, v);
 };
+// 1.23: музыка и звуки для всех от этого человека — отдельно от его голоса
+function fxPct(v) { return Number(v) === 0 ? 'выкл' : v + '%'; }
+for (const k of ['music', 'sfx']) {
+  $('pop-' + k).oninput = (e) => {
+    const v = Number(e.target.value); const key = k === 'music' ? 'userMusicVolumes' : 'userSfxVolumes';
+    $('pop-' + k + '-val').textContent = fxPct(v);
+    set({ [key]: { ...(settings[key] || {}), [popName]: v } });
+    if (S.voice) S.voice.applyFxVolumes();
+  };
+}
 document.addEventListener('mousedown', (e) => { if (!$('popover').hidden && !$('popover').contains(e.target)) $('popover').hidden = true; });
 
 // ===================== выбор экрана =====================
@@ -2886,6 +2897,8 @@ function syncSettingsUi() {
   $('s-ptt-rel').value = s.pttReleaseMs; $('s-ptt-rel-val').textContent = s.pttReleaseMs + ' мс';
   $('s-noise').value = s.noise; $('s-echo').checked = s.echoCancellation; $('s-agc').checked = s.autoGain;
   $('s-outvol').value = s.outputVolume; $('s-outvol-val').textContent = s.outputVolume + '%';
+  $('s-fmusic').value = s.friendsMusicVolume ?? 100; $('s-fmusic-val').textContent = fxPct(s.friendsMusicVolume ?? 100);
+  $('s-fsfx').value = s.friendsSfxVolume ?? 100; $('s-fsfx-val').textContent = fxPct(s.friendsSfxVolume ?? 100);
   $('s-sounds').checked = s.sounds;
   $('s-nick').value = S.me || settings.nick || ''; $('s-nick').disabled = $('s-nick-save').disabled = !S.me;
   paintProfileAvatar(); paintPasswordUi();
@@ -3066,6 +3079,8 @@ bindInput('s-highpass', 'highpass');
 bindInput('s-echo', 'echoCancellation');
 bindInput('s-agc', 'autoGain');
 bindInput('s-outvol', 'outputVolume', Number, 'input');
+bindInput('s-fmusic', 'friendsMusicVolume', Number, 'input');
+bindInput('s-fsfx', 'friendsSfxVolume', Number, 'input');
 bindInput('s-sounds', 'sounds');
 bindInput('s-tray', 'closeToTray');
 bindInput('s-res', 'screenRes');
@@ -3158,6 +3173,10 @@ onSettings((changed, s) => {
   // демки через сервер или напрямую (значок на панели или галочка в настройках) — сразу, посреди показа (1.16.3)
   if (changed.includes('screenViaServer')) { renderSfuToggle(); if (S.voice) S.voice.setViaServer(s.screenViaServer !== false).catch((e) => log.warn('screen', `Переключение «через сервер / напрямую»: ${e.message}`)); }
   if (changed.includes('outputVolume')) output.setVolume(s.outputVolume);
+  if (changed.some((k) => ['friendsMusicVolume', 'friendsSfxVolume'].includes(k))) {
+    $('s-fmusic-val').textContent = fxPct(s.friendsMusicVolume ?? 100); $('s-fsfx-val').textContent = fxPct(s.friendsSfxVolume ?? 100);
+    if (S.voice) S.voice.applyFxVolumes();
+  }
   if (changed.includes('verboseLog')) setVerbose(s.verboseLog);
   if (changed.includes('closeToTray') && api.trayPrefs) api.trayPrefs({ closeToTray: s.closeToTray !== false });
   if (S.voice && changed.includes('screenLatency')) { S.voice.setLatency(); renderStageLatency(); }

@@ -22,6 +22,10 @@ export const DEFAULTS = {
   outputDevice: 'default',
   outputVolume: 100,
   userVolumes: {},           // ник → %
+  userMusicVolumes: {},      // 1.23: ник → % его «музыки для всех» у меня
+  userSfxVolumes: {},        // 1.23: ник → % его «звуков для всех» у меня
+  friendsMusicVolume: 100,   // 1.23: музыка для всех от любых друзей, %
+  friendsSfxVolume: 100,     // 1.23: звуки для всех от любых друзей, %
   sounds: true,
   // демонстрация
   // 1.15.5: качество демки только своё (режима «Авто» и авторежима больше нет)

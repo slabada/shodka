@@ -215,6 +215,11 @@ export class Mic {
       dest.channelCount = 1;
       node.connect(this.gain); this.gain.connect(this.analyser);
       this.gain.connect(this.level2); this.level2.connect(this.preroll); this.preroll.connect(this.gate); this.gate.connect(dest);
+      // 1.23: кроме общей дорожки (голос + музыка + звуки — для друзей со старой «Сходкой») — три отдельные:
+      // голос, музыка и звуки. Новым версиям они идут раздельно, и каждый слушатель регулирует их у себя
+      const mono = () => { const d = ctx.createMediaStreamDestination(); d.channelCount = 1; return d; };
+      this.voiceDest = mono(); this.musicDest = mono(); this.sfxDest = mono();
+      this.gate.connect(this.voiceDest);
       this.dest = dest; this.musicG = 1; this.hookMusic(); // музыка для всех — мимо «ворот» (music.js)
       this.hookSfx(); // звуки для всех — тоже мимо «ворот» (soundboard.js)
       // отвод для проверки «как слышат друзья» (после обработки, без учёта кнопки/порога)
@@ -285,7 +290,12 @@ export class Mic {
     this.musicSrc = this.ctx.createMediaStreamSource(this.musicStream);
     this.musicGain = this.ctx.createGain(); this.musicG = 1; this.musicGain.gain.value = 1;
     this.musicSrc.connect(this.musicGain); this.musicGain.connect(this.dest);
+    if (this.musicDest) this.musicGain.connect(this.musicDest);
   }
+  // 1.23: отдельные дорожки (голос без музыки и звуков; музыка; звуки) — для друзей с 1.23 и новее
+  get voiceTrack() { return this.voiceDest ? this.voiceDest.stream.getAudioTracks()[0] : null; }
+  get musicTrack() { return this.musicDest ? this.musicDest.stream.getAudioTracks()[0] : null; }
+  get sfxTrack() { return this.sfxDest ? this.sfxDest.stream.getAudioTracks()[0] : null; }
   // Звуки для всех (soundboard.js, 1.21): так же, как музыка, — после «ворот», слышно и с выключенным микрофоном
   setSfx(stream) { this.sfxStream = stream || null; this.hookSfx(); }
   get sfxLive() { return !!this.sfxSrc; }
@@ -295,6 +305,7 @@ export class Mic {
     if (!this.sfxStream || !this.ctx || !this.dest || this.ctx.state === 'closed') return;
     this.sfxSrc = this.ctx.createMediaStreamSource(this.sfxStream);
     this.sfxSrc.connect(this.dest);
+    if (this.sfxDest) this.sfxSrc.connect(this.sfxDest);
   }
   setMuted(m) { this.muted = !!m; }
   setPtt(down) {
@@ -347,6 +358,7 @@ export class Mic {
     this.denoiser = null; this.raw = null; this.ctx = null; this.track = null; this.stream = null; this.analyser = null; this.testDest = null; this.vad = null;
     this.level2 = null; this.preroll = null; this.agcDb = 0; this.speechDb = null;
     this.dest = null; this.musicSrc = null; this.musicGain = null; this.sfxSrc = null;
+    this.voiceDest = null; this.musicDest = null; this.sfxDest = null;
     this.level = -100; this.open = false; this.speaking = false;
     if (den && den.destroy) { try { den.destroy(); } catch (_) { /* ignore */ } }
     if (raw) raw.getTracks().forEach((t) => t.stop());

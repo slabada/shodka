@@ -495,8 +495,11 @@
           <h2>Звук</h2>
           <label class="field"><span>Куда выводить звук</span><select id="s-output"></select></label>
           <label class="field"><span>Общая громкость <b id="s-outvol-val"></b></span><input type="range" id="s-outvol" min="0" max="200" step="5"></label>
+          <label class="field"><span>Музыка для всех от друзей <b id="s-fmusic-val"></b></span><input type="range" id="s-fmusic" min="0" max="200" step="5"></label>
+          <label class="field"><span>Звуки для всех от друзей <b id="s-fsfx-val"></b></span><input type="range" id="s-fsfx" min="0" max="200" step="5"></label>
+          <p class="hint small">Только у вас: голоса друзей не меняются. 0% — не слышать совсем. Работает с друзьями, у которых «Сходка» 1.23 или новее; у старых версий музыка и звуки идут вместе с голосом.</p>
           <label class="check"><input type="checkbox" id="s-sounds"> Звуки: вход и выход, новые сообщения, начало и конец демонстрации, зритель зашёл на вашу демку</label>
-          <p class="hint small">Чтобы сделать кого-то тише или громче — нажмите на него правой кнопкой мыши.</p>
+          <p class="hint small">Чтобы сделать кого-то тише или громче — или убрать только его музыку или звуки — нажмите на него правой кнопкой мыши.</p>
         </section>
 
         <section data-spane="screen" hidden>
@@ -606,6 +609,8 @@
   <div id="popover" class="popover" hidden>
     <div class="pop-title" id="pop-title"></div>
     <label class="field"><span>Громкость <b id="pop-vol-val"></b></span><input type="range" id="pop-vol" min="0" max="200" step="5"></label>
+    <label class="field" data-tip="«Музыка для всех», которую он включает. Голос не трогает. Работает, если у него «Сходка» 1.23 или новее"><span>Его музыка <b id="pop-music-val"></b></span><input type="range" id="pop-music" min="0" max="200" step="5"></label>
+    <label class="field" data-tip="«Звуки для всех», которые он включает. Голос не трогает. Работает, если у него «Сходка» 1.23 или новее"><span>Его звуки <b id="pop-sfx-val"></b></span><input type="range" id="pop-sfx" min="0" max="200" step="5"></label>
     <button class="btn small" id="pop-dm">Написать</button>
     <button class="btn small ghost" id="pop-log" hidden data-tip="Программа человека сама пришлёт вам журнал за последние дни в личку, он сразу скачается в «Загрузки»"><svg class="i"><use href="#i-save"/></svg>Скачать журнал</button>
     <button class="btn small ghost" id="pop-release" hidden data-tip="Если человек потерял пароль и папку программы: следующий вход под этим ником заберёт аккаунт со всей перепиской"><svg class="i"><use href="#i-person"/></svg>Освободить ник</button>

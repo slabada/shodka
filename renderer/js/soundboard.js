@@ -175,6 +175,11 @@ export class Soundboard {
       return;
     }
     if (turn !== this.turn) return;
+    // 1.23: друзьям с новой «Сходкой» звуки идут отдельной дорожкой, а в тишине она выключена — включаем
+    // и даём им миг её принять, чтобы начало звука не съелось
+    const v = !local && this.voice();
+    if (v && v.sfxWake && await v.sfxWake(buf.duration * 1000)) await new Promise((r) => setTimeout(r, 120));
+    if (turn !== this.turn) return;
     this.stopAll();
     const bi = BUILTIN.find((b) => b.id === id);
     const src = this.ctx.createBufferSource(); src.buffer = buf;

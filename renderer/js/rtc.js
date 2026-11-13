@@ -21,6 +21,9 @@ const FAKE_MODE = (api.testFlags && api.testFlags.fakeScreenAudio) || '';
 const FAKE_SCREEN_AUDIO = !!FAKE_MODE;
 export const CAN_SHARE_AUDIO = IS_WIN || FAKE_SCREEN_AUDIO;
 const SCREEN_AUDIO_BITRATE = 160000;
+// 1.23: отдельные дорожки «музыка для всех» и «звуки для всех» (моно Opus; музыка — как раньше в голосе, 96 кбит/с)
+const FX_MUSIC_BPS = 96000;
+const FX_SFX_BPS = 64000;
 
 // Звук трансляции — музыка и игры, а не голос: стерео, 160 кбит/с, без «тишинного» режима (DTX).
 // Параметры кодека задаёт принимающая сторона в своём SDP, поэтому стример правит пришедший ответ
@@ -320,6 +323,39 @@ class Peer {
     preferRed(this.voiceTx);
     if (this.micSender && voice.musicKbps) this.applyMusicBitrate();
     this.armWatchdog();
+    // 1.23: музыка и звуки для всех — отдельными дорожками, если друг это умеет (старые версии сигнал пропускают
+    // и получают всё вместе с голосом, как раньше)
+    this.fxOk = false; this.musicTx = null; this.sfxTx = null; this.remoteFx = null; this.rxMusic = null; this.rxSfx = null;
+    this.signal({ kind: 'caps', fx: 1 });
+  }
+
+  // друг умеет раздельные дорожки: ему голос — без музыки и звуков, а музыка и звуки — отдельно
+  async setupFx() {
+    const v = this.voice;
+    if (this.pc.signalingState === 'closed') return;
+    this.signal({ kind: 'fx', music: v.musicOut.id, sfx: v.sfxOut.id }); // до согласования — чтобы друг узнал дорожки
+    if (this.micSender && v.micTrack) await this.micSender.replaceTrack(v.mic.voiceTrack || v.micTrack);
+    this.musicTx = this.pc.addTransceiver('audio', { direction: 'sendonly', streams: [v.musicOut], sendEncodings: [{ maxBitrate: FX_MUSIC_BPS }] });
+    this.sfxTx = this.pc.addTransceiver('audio', { direction: 'sendonly', streams: [v.sfxOut], sendEncodings: [{ maxBitrate: FX_SFX_BPS }] });
+    this.applyMusicBitrate();
+    await this.refreshFx();
+    log.debug('rtc', `${this.name}: музыка и звуки для всех — отдельными дорожками`);
+  }
+
+  // дорожки музыки и звуков шлём, только пока они звучат — в тишине они не занимают интернет
+  async refreshFx() {
+    if (!this.fxOk || this.pc.signalingState === 'closed') return;
+    const m = this.voice.mic;
+    const put = (tx, on, track) => { const want = on ? track || null : null; return tx && tx.sender.track !== want ? tx.sender.replaceTrack(want) : null; };
+    try { await Promise.all([put(this.musicTx, this.voice.musicOn, m.musicTrack), put(this.sfxTx, this.voice.sfxOn, m.sfxTrack)]); } catch (e) { log.debug('rtc', `${this.name}: дорожки музыки и звуков не обновились: ${e.message}`); }
+  }
+
+  // чья это дорожка: музыка или звуки этого друга (null — голос или трансляция)
+  fxKind(tx, sid) {
+    if (tx && tx === this.rxMusic) return 'music';
+    if (tx && tx === this.rxSfx) return 'sfx';
+    if (this.remoteFx && sid) { if (sid === this.remoteFx.music) return 'music'; if (sid === this.remoteFx.sfx) return 'sfx'; }
+    return null;
   }
 
   // Музыка для всех (music.js): пока она играет, голосовая дорожка идёт с битрейтом для музыки.
@@ -330,7 +366,7 @@ class Peer {
     try {
       const p = s.getParameters();
       if (!p.encodings || !p.encodings.length) return;
-      const want = this.voice.musicKbps ? this.voice.musicKbps * 1000 : undefined;
+      const want = this.voice.musicKbps && !this.fxOk ? this.voice.musicKbps * 1000 : undefined; // 1.23: с отдельной дорожкой музыки голосу хватает обычного
       if (p.encodings[0].maxBitrate === want) return;
       if (want) p.encodings[0].maxBitrate = want; else delete p.encodings[0].maxBitrate;
       await s.setParameters(p);
@@ -399,6 +435,10 @@ class Peer {
     } else if (data.kind === 'screen-vw') {
       // 1.20: стример сообщает, кто сейчас смотрит его демку (полоса под демкой: «Смотрят 3»)
       this.remoteWatchers = Array.isArray(data.who) ? data.who.slice(0, 32).map((x) => String(x).slice(0, 64)) : null;
+    } else if (data.kind === 'caps') {
+      if (data.fx && !this.fxOk) { this.fxOk = true; await this.setupFx(); }
+    } else if (data.kind === 'fx') {
+      this.remoteFx = { music: String(data.music || ''), sfx: String(data.sfx || '') };
     } else if (data.kind === 'voice-q') {
       // друг сообщает: «тебя слышно с перебоями» — покажем это говорящему (app.js)
       this.voice.emit('voiceq', { name: this.name, loss: Number(data.loss) || 0, conceal: Number(data.conceal) || 0, jitter: Number(data.jitter) || 0, path: String(data.path || '') });
@@ -433,6 +473,13 @@ class Peer {
     // Звук трансляции отличаем от голоса по приёмнику: при повторном показе Chromium может прислать
     // старый id потока, и без этого звук игры подменял бы голос друга.
     const tx = e.transceiver;
+    const fx = t.kind === 'audio' && this.fxKind(tx, sid);
+    if (fx) {
+      if (tx) { if (fx === 'music') this.rxMusic = tx; else this.rxSfx = tx; }
+      out.add(fx + ':' + this.name, t, this.voice.fxVolume(fx, this.name));
+      log.debug('rtc', `${fx === 'music' ? 'Музыка' : 'Звуки'} ${this.name} — отдельной дорожкой`);
+      return;
+    }
     let isScreen = t.kind === 'video' || !!(sid && sid === this.remoteScreenId);
     if (!isScreen && tx) isScreen = tx === this.rxScreenAudio || (!!this.rxVoice && tx !== this.rxVoice && !!this.remoteScreenId);
     if (t.kind === 'audio' && tx) { if (isScreen) this.rxScreenAudio = tx; else this.rxVoice = tx; }
@@ -544,6 +591,7 @@ class Peer {
   }
 
   async setMicTrack(track) {
+    if (this.fxOk) { await this.refreshFx(); if (track) track = this.voice.mic.voiceTrack || track; } // 1.23: голос без музыки и звуков
     if (this.micSender) { await this.micSender.replaceTrack(track); return; }
     if (!track) return;
     if (this.audioTx && this.audioTx.sender && !this.audioTx.sender.track) {
@@ -911,6 +959,8 @@ class Peer {
     try { this.pc.close(); } catch (_) { /* ignore */ }
     this.voice.output.remove('voice:' + this.name);
     this.voice.output.remove('screen:' + this.name);
+    this.voice.output.remove('music:' + this.name);
+    this.voice.output.remove('sfx:' + this.name);
   }
 }
 
@@ -932,13 +982,39 @@ export class Voice {
     this.handlers = new Map();
     this.statsTimer = null;
     this.musicKbps = 0;       // играет музыка для всех (music.js) — битрейт голосовой дорожки, 0 — обычный
+    // 1.23: постоянные «потоки» для отдельных дорожек музыки и звуков — по их id друг узнаёт, что это за дорожка
+    this.musicOut = new MediaStream(); this.sfxOut = new MediaStream();
+    this.musicOn = false; this.sfxOn = false; this.sfxTimer = null;
   }
 
   setMusicBitrate(kbps) {
     const v = Math.max(0, Math.round(Number(kbps) || 0));
     if (v === this.musicKbps) return;
     this.musicKbps = v;
-    for (const p of this.peers.values()) p.applyMusicBitrate();
+    this.musicOn = v > 0;
+    for (const p of this.peers.values()) { p.applyMusicBitrate(); p.refreshFx(); }
+  }
+
+  // звук для всех вот-вот заиграет (soundboard.js): включаем дорожку звуков; выключится через 30 с тишины.
+  // true — дорожка только что включилась (друзьям нужен миг, чтобы её принять)
+  async sfxWake(ms = 0) {
+    clearTimeout(this.sfxTimer);
+    this.sfxTimer = setTimeout(() => { this.sfxOn = false; for (const p of this.peers.values()) p.refreshFx(); }, ms + 30e3);
+    if (this.sfxOn) return false;
+    this.sfxOn = true;
+    const fx = [...this.peers.values()].filter((p) => p.fxOk);
+    await Promise.all(fx.map((p) => p.refreshFx()));
+    return fx.length > 0;
+  }
+
+  // громкость музыки или звуков друга у меня: его ползунок × общий ползунок в настройках
+  fxVolume(kind, name) {
+    const per = (settings[kind === 'music' ? 'userMusicVolumes' : 'userSfxVolumes'] || {})[name] ?? 100;
+    const all = settings[kind === 'music' ? 'friendsMusicVolume' : 'friendsSfxVolume'] ?? 100;
+    return Math.round((per * all) / 100);
+  }
+  applyFxVolumes() {
+    for (const name of this.peers.keys()) for (const k of ['music', 'sfx']) this.output.setSourceVolume(k + ':' + name, this.fxVolume(k, name));
   }
 
   on(type, cb) { if (!this.handlers.has(type)) this.handlers.set(type, new Set()); this.handlers.get(type).add(cb); }
@@ -982,6 +1058,8 @@ export class Voice {
     p.name = to;
     this.output.renameSource('voice:' + from, 'voice:' + to);
     this.output.renameSource('screen:' + from, 'screen:' + to);
+    this.output.renameSource('music:' + from, 'music:' + to);
+    this.output.renameSource('sfx:' + from, 'sfx:' + to);
     if (this.watching === from) this.watching = to;
     if (this.sfu.cons.has(from)) { this.sfu.cons.set(to, this.sfu.cons.get(from)); this.sfu.cons.delete(from); } // потоки демки с сервера
     this.emit('peers');
