@@ -305,7 +305,7 @@ class Peer {
       try {
         this.makingOffer = true;
         await pc.setLocalDescription();
-        this.signal({ kind: 'sdp', description: pc.localDescription });
+        this.signalSdp();
       } catch (e) {
         log.error('rtc', `Ошибка согласования с ${name}: ${e.message}`, { err: e });
       } finally { this.makingOffer = false; }
@@ -323,20 +323,59 @@ class Peer {
     preferRed(this.voiceTx);
     if (this.micSender && voice.musicKbps) this.applyMusicBitrate();
     this.armWatchdog();
-    // 1.23: музыка и звуки для всех — отдельными дорожками, если друг это умеет (старые версии сигнал пропускают
-    // и получают всё вместе с голосом, как раньше)
-    this.fxOk = false; this.musicTx = null; this.sfxTx = null; this.remoteFx = null; this.rxMusic = null; this.rxSfx = null;
-    this.signal({ kind: 'caps', fx: 1 });
+    // 1.23: музыка и звуки для всех — отдельными дорожками, если друг это умеет (старые версии получают всё
+    // вместе с голосом, как раньше).
+    // 1.23.1: «умею» едет внутри предложения и ответа (signalSdp), а не отдельным сигналом до них. В 1.23.0 сигнал
+    // «caps» приходил раньше предложения новичка, вторая сторона из-за него тоже начинала предлагать — предложения
+    // сталкивались, одна сторона откатывала своё, и после отката Chromium переставал отправлять её голос
+    // (у citiznes и Egor2: соединение есть, а один другого не слышит). Теперь дорожки добавляет только тот, кто
+    // предлагал первым, а отвечающий пользуется ими же в обратную сторону — встречных предложений нет.
+    this.fxOk = false;      // друг умеет раздельные дорожки
+    this.fxLive = false;    // наши дорожки музыки и звуков согласованы — голос идёт без музыки и звуков
+    this.musicTx = null; this.sfxTx = null;   // по ним шлём музыку и звуки
+    this.rxMusic = null; this.rxSfx = null;   // по ним получаем (у отвечающего — те же самые)
+    this.remoteFx = null;   // id потоков друга: по ним узнаём его дорожки
   }
 
-  // друг умеет раздельные дорожки: ему голос — без музыки и звуков, а музыка и звуки — отдельно
-  async setupFx() {
+  // предложение или ответ — с пометкой «умею раздельные дорожки» и id своих потоков музыки и звуков
+  signalSdp() {
     const v = this.voice;
-    if (this.pc.signalingState === 'closed') return;
-    this.signal({ kind: 'fx', music: v.musicOut.id, sfx: v.sfxOut.id }); // до согласования — чтобы друг узнал дорожки
-    if (this.micSender && v.micTrack) await this.micSender.replaceTrack(v.mic.voiceTrack || v.micTrack);
-    this.musicTx = this.pc.addTransceiver('audio', { direction: 'sendonly', streams: [v.musicOut], sendEncodings: [{ maxBitrate: FX_MUSIC_BPS }] });
-    this.sfxTx = this.pc.addTransceiver('audio', { direction: 'sendonly', streams: [v.sfxOut], sendEncodings: [{ maxBitrate: FX_SFX_BPS }] });
+    this.signal({ kind: 'sdp', description: this.pc.localDescription, fx: 1, fxIds: { music: v.musicOut.id, sfx: v.sfxOut.id } });
+  }
+
+  // я предлагал первым, друг умеет раздельные дорожки: добавляю две дорожки (в обе стороны) — пойдёт ещё одно согласование
+  setupFx() {
+    const v = this.voice;
+    if (this.musicTx || this.pc.signalingState === 'closed') return;
+    this.musicTx = this.pc.addTransceiver('audio', { direction: 'sendrecv', streams: [v.musicOut], sendEncodings: [{ maxBitrate: FX_MUSIC_BPS }] });
+    this.sfxTx = this.pc.addTransceiver('audio', { direction: 'sendrecv', streams: [v.sfxOut], sendEncodings: [{ maxBitrate: FX_SFX_BPS }] });
+  }
+
+  // я отвечаю, а в предложении друга пришли его дорожки музыки и звуков: по ним же шлю свои (до ответа)
+  adoptFx() {
+    const v = this.voice;
+    if (this.musicTx || !this.rxMusic || !this.rxSfx) return;
+    try {
+      for (const [tx, out] of [[this.rxMusic, v.musicOut], [this.rxSfx, v.sfxOut]]) { tx.direction = 'sendrecv'; tx.sender.setStreams(out); }
+      this.musicTx = this.rxMusic; this.sfxTx = this.rxSfx;
+    } catch (e) { log.debug('rtc', `${this.name}: свои дорожки музыки и звуков не подключились: ${e.message}`); }
+  }
+
+  // согласование закончилось: если наши дорожки музыки и звуков договорились — голос дальше идёт без музыки и звуков
+  async fxCheckLive() {
+    const pc = this.pc;
+    if (this.fxLive || !this.musicTx || !this.sfxTx || pc.signalingState !== 'stable') return;
+    const sends = (tx) => !!tx.currentDirection && tx.currentDirection.startsWith('send');
+    if (!sends(this.musicTx) || !sends(this.sfxTx)) return;
+    this.fxLive = true;
+    const v = this.voice;
+    try {
+      for (const [tx, bps] of [[this.musicTx, FX_MUSIC_BPS], [this.sfxTx, FX_SFX_BPS]]) {
+        const p = tx.sender.getParameters();
+        if (p.encodings && p.encodings.length && p.encodings[0].maxBitrate !== bps) { p.encodings[0].maxBitrate = bps; await tx.sender.setParameters(p); }
+      }
+    } catch (e) { log.debug('rtc', `${this.name}: битрейт музыки и звуков не задан: ${e.message}`); }
+    try { if (this.micSender && v.micTrack) await this.micSender.replaceTrack(v.mic.voiceTrack || v.micTrack); } catch (e) { log.debug('rtc', `${this.name}: голос без музыки не включился: ${e.message}`); this.fxLive = false; return; }
     this.applyMusicBitrate();
     await this.refreshFx();
     log.debug('rtc', `${this.name}: музыка и звуки для всех — отдельными дорожками`);
@@ -344,7 +383,7 @@ class Peer {
 
   // дорожки музыки и звуков шлём, только пока они звучат — в тишине они не занимают интернет
   async refreshFx() {
-    if (!this.fxOk || this.pc.signalingState === 'closed') return;
+    if (!this.fxLive || this.pc.signalingState === 'closed') return;
     const m = this.voice.mic;
     const put = (tx, on, track) => { const want = on ? track || null : null; return tx && tx.sender.track !== want ? tx.sender.replaceTrack(want) : null; };
     try { await Promise.all([put(this.musicTx, this.voice.musicOn, m.musicTrack), put(this.sfxTx, this.voice.sfxOn, m.sfxTrack)]); } catch (e) { log.debug('rtc', `${this.name}: дорожки музыки и звуков не обновились: ${e.message}`); }
@@ -352,8 +391,8 @@ class Peer {
 
   // чья это дорожка: музыка или звуки этого друга (null — голос или трансляция)
   fxKind(tx, sid) {
-    if (tx && tx === this.rxMusic) return 'music';
-    if (tx && tx === this.rxSfx) return 'sfx';
+    if (tx && (tx === this.rxMusic || tx === this.musicTx)) return 'music';
+    if (tx && (tx === this.rxSfx || tx === this.sfxTx)) return 'sfx';
     if (this.remoteFx && sid) { if (sid === this.remoteFx.music) return 'music'; if (sid === this.remoteFx.sfx) return 'sfx'; }
     return null;
   }
@@ -366,7 +405,7 @@ class Peer {
     try {
       const p = s.getParameters();
       if (!p.encodings || !p.encodings.length) return;
-      const want = this.voice.musicKbps && !this.fxOk ? this.voice.musicKbps * 1000 : undefined; // 1.23: с отдельной дорожкой музыки голосу хватает обычного
+      const want = this.voice.musicKbps && !this.fxLive ? this.voice.musicKbps * 1000 : undefined; // 1.23: с отдельной дорожкой музыки голосу хватает обычного
       if (p.encodings[0].maxBitrate === want) return;
       if (want) p.encodings[0].maxBitrate = want; else delete p.encodings[0].maxBitrate;
       await s.setParameters(p);
@@ -398,14 +437,18 @@ class Peer {
       const collision = d.type === 'offer' && (this.makingOffer || pc.signalingState !== 'stable');
       this.ignoreOffer = !this.polite && collision;
       if (this.ignoreOffer) { log.debug('rtc', `Встречное предложение от ${this.name} проигнорировано`); return; }
+      // 1.23.1: друг умеет раздельные дорожки — запоминаем до применения, чтобы узнать его дорожки музыки и звуков
+      if (data.fx) { this.fxOk = true; if (data.fxIds) this.remoteFx = { music: String(data.fxIds.music || ''), sfx: String(data.fxIds.sfx || '') }; }
       try { await pc.setRemoteDescription(tuneScreenAudio(startBitrate(d, Math.min(this.voice.target().mbps, this.voice.uplinkShare())), this.atx && this.atx.mid)); } catch (e) {
         log.debug('rtc', `SDP с подсказкой стартовой скорости не принят (${e.message}) — применяю как есть`);
         await pc.setRemoteDescription(d);
       }
       if (d.type === 'offer') {
+        if (this.fxOk) this.adoptFx();
         await pc.setLocalDescription();
-        this.signal({ kind: 'sdp', description: pc.localDescription });
-      }
+        this.signalSdp();
+      } else if (this.fxOk && !this.musicTx) this.setupFx(); // пришёл ответ: первым предлагал я — мои дорожки и добавляю
+      await this.fxCheckLive();
       if (this.voice.musicKbps) this.applyMusicBitrate();
     } else if (data.kind === 'ice') {
       try { await pc.addIceCandidate(data.candidate); } catch (e) { log.debug('rtc', `Кандидат от ${this.name} отклонён${this.ignoreOffer ? ' (встречное предложение)' : ''}: ${e.message}`); }
@@ -435,10 +478,6 @@ class Peer {
     } else if (data.kind === 'screen-vw') {
       // 1.20: стример сообщает, кто сейчас смотрит его демку (полоса под демкой: «Смотрят 3»)
       this.remoteWatchers = Array.isArray(data.who) ? data.who.slice(0, 32).map((x) => String(x).slice(0, 64)) : null;
-    } else if (data.kind === 'caps') {
-      if (data.fx && !this.fxOk) { this.fxOk = true; await this.setupFx(); }
-    } else if (data.kind === 'fx') {
-      this.remoteFx = { music: String(data.music || ''), sfx: String(data.sfx || '') };
     } else if (data.kind === 'voice-q') {
       // друг сообщает: «тебя слышно с перебоями» — покажем это говорящему (app.js)
       this.voice.emit('voiceq', { name: this.name, loss: Number(data.loss) || 0, conceal: Number(data.conceal) || 0, jitter: Number(data.jitter) || 0, path: String(data.path || '') });
@@ -591,7 +630,7 @@ class Peer {
   }
 
   async setMicTrack(track) {
-    if (this.fxOk) { await this.refreshFx(); if (track) track = this.voice.mic.voiceTrack || track; } // 1.23: голос без музыки и звуков
+    if (this.fxLive) { await this.refreshFx(); if (track) track = this.voice.mic.voiceTrack || track; } // 1.23: голос без музыки и звуков
     if (this.micSender) { await this.micSender.replaceTrack(track); return; }
     if (!track) return;
     if (this.audioTx && this.audioTx.sender && !this.audioTx.sender.track) {
@@ -1002,7 +1041,7 @@ export class Voice {
     this.sfxTimer = setTimeout(() => { this.sfxOn = false; for (const p of this.peers.values()) p.refreshFx(); }, ms + 30e3);
     if (this.sfxOn) return false;
     this.sfxOn = true;
-    const fx = [...this.peers.values()].filter((p) => p.fxOk);
+    const fx = [...this.peers.values()].filter((p) => p.fxLive);
     await Promise.all(fx.map((p) => p.refreshFx()));
     return fx.length > 0;
   }
@@ -1127,7 +1166,13 @@ export class Voice {
     this.emit('peers');
   }
 
-  signal(from, data) { if (this.room) this.peer(from).handle(data); }
+  signal(from, data) {
+    if (!this.room) return;
+    // 1.23.1: отдельные сигналы «caps» и «fx» шлёт только 1.23.0 — пропускаем: соединение создаёт предложение новичка,
+    // а не они (иначе встречные предложения). С 1.23.0 музыка и звуки идут вместе с голосом, как со старыми версиями
+    if (data && (data.kind === 'caps' || data.kind === 'fx')) return;
+    this.peer(from).handle(data);
+  }
 
   async setMicTrack(track) {
     this.micTrack = track;
